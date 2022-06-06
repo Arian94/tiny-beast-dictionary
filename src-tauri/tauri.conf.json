@@ -1,0 +1,67 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
+  "build": {
+    "beforeBuildCommand": "yarn build",
+    "beforeDevCommand": "yarn dev",
+    "devPath": "http://localhost:3000",
+    "distDir": "../dist",
+    "withGlobalTauri": true
+  },
+  "package": {
+    "productName": "tiny dictionary",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": true
+    },
+    "bundle": {
+      "active": true,
+      "category": "DeveloperTool",
+      "copyright": "",
+      "deb": {
+        "depends": []
+      },
+      "externalBin": [],
+      "icon": [
+        "icons/icon.ico",
+        "icons/icon.icns",
+        "icons/icon.png",
+        "icons/32x32.png",
+        "icons/128x128.png"
+      ],
+      "identifier": "com.dictionary",
+      "longDescription": "tiny app for online/offline dictionaries. it works using google translate api and offline english-to-persian database.",
+      "macOS": {
+        "entitlements": null,
+        "exceptionDomain": "",
+        "frameworks": [],
+        "providerShortName": null,
+        "signingIdentity": null
+      },
+      "resources": ["json_dictionaries"],
+      "shortDescription": "tiny app for online/offline dictionaries",
+      "targets": "deb",
+      "windows": {
+        "certificateThumbprint": null,
+        "digestAlgorithm": "sha256",
+        "timestampUrl": ""
+      }
+    },
+    "security": {
+      "csp": null
+    },
+    "updater": {
+      "active": false
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "height": 200,
+        "resizable": true,
+        "title": "Tiny Dictionary",
+        "width": 300
+      }
+    ]
+  }
+}

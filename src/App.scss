@@ -1,0 +1,15 @@
+.App {
+  padding: 1rem;
+
+  p {
+    direction: rtl;
+  }
+
+  &>* {
+    width: 100%;
+  }
+}
+
+.translation {
+  font-family: 'PersianFont';
+}
