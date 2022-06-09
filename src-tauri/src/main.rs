@@ -7,10 +7,12 @@
 extern crate lazy_static;
 
 mod helper;
+mod google_translate;
 
 use std::error::Error;
 use std::io::BufReader;
 use std::{collections::HashMap, fs::File};
+use google_translate::Translator;
 
 static JSON_DIR: &str = "json_dictionaries";
 static RAW_DIR: &str = "raw_dictionaries";
@@ -43,10 +45,8 @@ fn main() {
     // println!("{:?}", *global_dict().lock().unwrap());
     // println!("{:?}", EN_FA_DICT.get("abandon"));
 
-    // println!("{:?}", rustlate::translate_auto("hello", "tr"));
-
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![find])
+        .invoke_handler(tauri::generate_handler![find, google_translate])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -73,4 +73,13 @@ fn find(word: &str) -> Result<Vec<String>, &str> {
     } else {
         Err("not found")
     }
+}
+
+#[tauri::command]
+async fn google_translate(from: &str, to: &str, word: &str) -> Result<String, String> {
+    let translator_struct = Translator{
+        from,
+        to
+    };
+    translator_struct.translate(&word).await
 }
