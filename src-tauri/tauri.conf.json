@@ -9,7 +9,7 @@
   },
   "package": {
     "productName": "tiny dictionary",
-    "version": "0.2.0"
+    "version": "0.2.1"
   },
   "tauri": {
     "allowlist": {
@@ -56,11 +56,14 @@
     },
     "windows": [
       {
-        "fullscreen": false,
-        "height": 200,
-        "resizable": true,
         "title": "Tiny Dictionary",
-        "width": 300
+        "fullscreen": false,
+        "minWidth": 300,
+        "width": 300,
+        "minHeight": 205,
+        "height": 205,
+        "resizable": true,
+        "transparent": true
       }
     ]
   }
