@@ -16,6 +16,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<'online' | 'offline'>('online');
   const [from, setFrom] = useState<CountriesValues | 'auto'>('auto');
   const [to, setTo] = useState<CountriesValues>('fa');
+  const [loading, setLoading] = useState<boolean>(false);
   const inputElm = useRef<HTMLInputElement>();
   let clipboardBuffer: string | null;
 
@@ -61,18 +62,21 @@ function App() {
     from === 'auto' ? setTo('en') : setTo(from);
   }
 
-  const invokeBackend = () => {
+  const invokeBackend = async () => {
     let translation = '';
     if (activeTab === 'online')
-      invoke<string>('google_translate', { from, to, word: value }).then(dt => {
-        setTranslation(dt);
-      })
-    else
-      invoke<string[]>('find', { word: value }).then(dt => {
+      translation = await invoke<string>('google_translate', { from, to, word: value });
+    else {
+      try {
+        const dt = await invoke<string[]>('find', { word: value });
         translation = ('' + dt).replaceAll(",", " - ");
-      }).catch(er => {
+      } catch (er: any) {
         translation = er;
-      }).finally(() => setTranslation(translation))
+      }
+    }
+
+    setTranslation(translation)
+    setLoading(false)
   }
 
   const handler = () => {
@@ -80,6 +84,7 @@ function App() {
     const { value } = inputElm.current;
     if (!value.trim()) return;
     if (!isNaN(+value)) return;
+    setLoading(true);
     invokeBackend();
   };
 
@@ -130,7 +135,10 @@ function App() {
 
       <input type="search" autoFocus placeholder='type...'
         onChange={event => setValue(event.target.value)} />
-      <p className='translation' dir={to === 'fa' ? 'rtl' : 'ltr'} >{translation}</p>
+      <fieldset className='translation' dir={to === 'fa' ? 'rtl' : 'ltr'} style={{ opacity: loading ? .5 : 1 }}>
+        <legend>Translation</legend>
+        {translation}
+      </fieldset>
     </div>
   )
 }

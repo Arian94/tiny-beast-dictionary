@@ -59,7 +59,7 @@
 
       span {
         font-size: 10px;
-        margin-inline-start: 2px;
+        margin-inline-start: 4px;
       }
     }
 
@@ -67,6 +67,9 @@
       align-self: end;
       margin-inline: 4px;
       margin-bottom: 2px;
+      background: white;
+      border-radius: 15px;
+      border: 1px solid;
 
       img {
         position: relative;
@@ -81,12 +84,24 @@
   }
 }
 
-.translation {
+fieldset {
+  position: relative;
   font-family: 'PersianFont';
+  min-height: 50px;
+  height: calc(100% - 150px);
   word-wrap: break-word;
   padding-inline: 4px;
-  min-height: 50px;
+  margin-block: 0.8rem;
+  margin-inline: 0;
   background-color: rgba(166, 214, 240, 0.1);
   border: 1px solid rgb(63, 63, 117);
   border-radius: 5px;
+
+  legend {
+    position: absolute;
+    bottom: 4.6rem;
+    left: 2px;
+    font-size: 10px;
+    background-color: transparent;
+  }
 }
