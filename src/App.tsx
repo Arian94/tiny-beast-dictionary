@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { useEffect, useRef, useState } from 'react';
 import './App.scss';
 import './assets/fonts/persian/NotoSansArabic.ttf';
-import { google_translate_icon, refresh_icon } from './assets/images';
+import { google_translate_icon } from './assets/images';
 import { countries } from './countries';
 
 type CountriesKeys = keyof typeof countries;
@@ -62,6 +62,10 @@ function App() {
     from === 'auto' ? setTo('en') : setTo(from);
   }
 
+  const speak = (word: string, lang: CountriesValues | 'auto') => {
+    invoke<string>('speak', { word, lang });
+  }
+
   const invokeBackend = async () => {
     let translation = '';
     if (activeTab === 'online')
@@ -117,9 +121,7 @@ function App() {
             </select>
           </div>
 
-          <button onClick={swapLang}>
-            <img src={refresh_icon} />
-          </button>
+          <button onClick={swapLang}></button>
 
           <div className="to">
             <span>to</span>
@@ -133,11 +135,15 @@ function App() {
         </div> : undefined
       }
 
-      <input type="search" autoFocus placeholder='type...'
-        onChange={event => setValue(event.target.value)} />
+      <div className="input">
+        <input type="search" autoFocus placeholder='type...' onChange={event => setValue(event.target.value)} />
+        <button onClick={() => speak(value, from)} style={{ opacity: !value || from === 'fa' ? .5 : 1 }} disabled={!value || from === 'fa'}></button>
+      </div>
+
       <fieldset className='translation' dir={to === 'fa' ? 'rtl' : 'ltr'} style={{ opacity: loading ? .5 : 1 }}>
         <legend>Translation</legend>
         {translation}
+        <button onClick={() => speak(translation, to)} style={{ opacity: !translation || to === 'fa' ? 0 : 1 }} disabled={!translation || to === 'fa'}></button>
       </fieldset>
     </div>
   )

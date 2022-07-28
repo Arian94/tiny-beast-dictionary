@@ -13,6 +13,8 @@ use std::error::Error;
 use std::io::BufReader;
 use std::{collections::HashMap, fs::File};
 use google_translate::Translator;
+use tts_rust::GTTSClient;
+use tts_rust::languages::Languages;
 
 static JSON_DIR: &str = "json_dictionaries";
 static RAW_DIR: &str = "raw_dictionaries";
@@ -46,7 +48,7 @@ fn main() {
     // println!("{:?}", EN_FA_DICT.get("abandon"));
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![find, google_translate])
+        .invoke_handler(tauri::generate_handler![find, google_translate, speak])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -59,14 +61,12 @@ fn prepare_json_dict(dictionary_path: &str) -> Result<HashMap<String, Vec<String
     let file = File::open(absolute_path)?;
     let reader = BufReader::new(file);
     let dict: HashMap<String, Vec<String>> = serde_json::from_reader(reader)?;
-
     Ok(dict)
 }
 
 #[tauri::command]
 fn find(word: &str) -> Result<Vec<String>, &str> {
     // let dict = &*global_dict().lock().unwrap();
-
     if let Some(found) = EN_FA_DICT.get(word) {
         let owned_word = found.to_owned();
         Ok(owned_word)
@@ -82,4 +82,17 @@ async fn google_translate(from: &str, to: &str, word: &str) -> Result<String, St
         to
     };
     translator_struct.translate(&word).await
+}
+
+#[tauri::command]
+async fn speak<'a>(word: String, lang: String) {
+    let narrator = GTTSClient {
+        volume: 1.0, 
+        language: match lang.as_str() {
+            "en" => Languages::English,
+            "fr" => Languages::French,
+            _ => Languages::English
+        }
+    };
+    narrator.speak(&word);
 }
