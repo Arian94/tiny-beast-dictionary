@@ -58,10 +58,10 @@
       {
         "title": "Tiny Dictionary",
         "fullscreen": false,
-        "minWidth": 300,
-        "width": 300,
-        "minHeight": 205,
-        "height": 205,
+        "minWidth": 290,
+        "width": 290,
+        "minHeight": 200,
+        "height": 200,
         "resizable": true,
         "transparent": true
       }

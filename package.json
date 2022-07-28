@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite",
+    "serve_dev": "yarn tauri dev",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri"

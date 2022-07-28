@@ -1,27 +1,20 @@
 .App {
-  min-height: 170px;
-  padding: 1rem;
+  height: 99vh;
+  padding: 0 .5rem;
   color: white;
-  background-color: rgb(0,0,0,0.5);
-  border: 1px solid rgb(0, 0, 158);
+  background-color: rgb(0, 0, 0, 0.8);
 
   .nav {
     display: flex;
-    width: 60%;
-    margin: 0 auto 1rem;
+    margin: .1rem auto .5rem;
     padding-left: 0px;
     align-items: center;
     justify-content: space-between;
-    border: 1px solid #39A2DB;
-    border-radius: 2rem;
+    border: 1px solid rgba(67, 67, 226, 0.295);
 
     img {
       width: 20px;
       margin-inline-start: 2px;
-    }
-
-    @media (max-width: 768px) {
-      width: 90%;
     }
   }
 
@@ -38,30 +31,52 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    border-bottom-left-radius: 2rem;
-    border-top-left-radius: 2rem;
+    // border-bottom-left-radius: 2rem;
+    // border-top-left-radius: 2rem;
   }
 
-  .nav li:last-child {
-    border-bottom-right-radius: 2rem;
-    border-top-right-radius: 2rem;
-  }
+  // .nav li:last-child {
+  //   border-bottom-right-radius: 2rem;
+  //   border-top-right-radius: 2rem;
+  // }
 
   .nav li:hover {
     background: rgba(50, 224, 196, 0.15);
   }
 
   .nav li.active {
-    background: #39A2DB;
+    background: rgb(39, 39, 126);
   }
 
   .language-options {
-    span:nth-of-type(2) {
-      margin-inline-start: 2rem;
+    display: flex;
+    margin-bottom: 10px;
+
+    :is(.to, .from) {
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+
+      span {
+        font-size: 10px;
+        margin-inline-start: 2px;
+      }
+    }
+
+    button {
+      align-self: end;
+      margin-inline: 4px;
+      margin-bottom: 2px;
+
+      img {
+        position: relative;
+        width: 15px;
+        top: 1px;
+      }
     }
   }
 
-  &>* {
+  input {
     width: 100%;
   }
 }
@@ -69,4 +84,9 @@
 .translation {
   font-family: 'PersianFont';
   word-wrap: break-word;
+  padding-inline: 4px;
+  min-height: 50px;
+  background-color: rgba(166, 214, 240, 0.1);
+  border: 1px solid rgb(63, 63, 117);
+  border-radius: 5px;
 }

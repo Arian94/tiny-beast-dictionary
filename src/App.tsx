@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { useEffect, useRef, useState } from 'react';
 import './App.scss';
 import './assets/fonts/persian/NotoSansArabic.ttf';
-import { google_translate_icon } from './assets/images';
+import { google_translate_icon, refresh_icon } from './assets/images';
 import { countries } from './countries';
 
 type CountriesKeys = keyof typeof countries;
@@ -56,6 +56,11 @@ function App() {
     return ops
   }
 
+  const swapLang = () => {
+    setFrom(to);
+    from === 'auto' ? setTo('en') : setTo(from);
+  }
+
   const invokeBackend = () => {
     let translation = '';
     if (activeTab === 'online')
@@ -90,28 +95,36 @@ function App() {
         <li
           className={activeTab === "offline" ? "active" : ""}
           onClick={() => setActiveTab('offline')}>
-          En-Fa (Offline)
+          En-Fa <sup>(Offline)</sup>
         </li>
       </ul>
 
       {activeTab === "online" ?
         <div className="language-options">
-          <span>from</span>
-          <select key="from"
-            onChange={event => setFrom(event.target.value as CountriesValues)} value={from}>
-            <option value="auto">Detect</option>
-            <>
-              {langOptions('from')}
-            </>
-          </select>
+          <div className="from">
+            <span>from</span>
+            <select key="from"
+              onChange={event => setFrom(event.target.value as CountriesValues)} value={from}>
+              <option value="auto">Detect</option>
+              <>
+                {langOptions('from')}
+              </>
+            </select>
+          </div>
 
-          <span>to</span>
-          <select key="to"
-            onChange={event => setTo(event.target.value as CountriesValues)} value={to}>
-            <>
-              {langOptions('to')}
-            </>
-          </select>
+          <button onClick={swapLang}>
+            <img src={refresh_icon} />
+          </button>
+
+          <div className="to">
+            <span>to</span>
+            <select key="to"
+              onChange={event => setTo(event.target.value as CountriesValues)} value={to}>
+              <>
+                {langOptions('to')}
+              </>
+            </select>
+          </div>
         </div> : undefined
       }
 
