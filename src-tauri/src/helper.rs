@@ -27,8 +27,8 @@ pub mod tests {
 
         let range = excel.worksheet_range(sheet_name).unwrap().unwrap();
         let mut dict = HashMap::new();
-        let mut value_buffer: Vec<String> = Vec::new();
-        let mut previous_key = "";
+        let mut value_buffer = String::new();
+        let mut previous_key = range.get((0,0)).unwrap().get_string().unwrap();
         let mut current_key = "";
 
         range.rows().for_each(|row| {
@@ -36,19 +36,18 @@ pub mod tests {
             let current_value = row[1].get_string().unwrap().to_string();
 
             if previous_key == current_key {
-                value_buffer.push(current_value);
+                let val = format!("، {current_value}");
+                value_buffer.push_str(&val);
             } else {
                 dict.insert(previous_key.to_string(), value_buffer.clone());
-                value_buffer = vec![current_value];
+                value_buffer = current_value;
                 previous_key = current_key;
             }
         });
 
         dict.insert(current_key.to_string(), value_buffer);
-        dict.remove(""); // inserting "" happens at first loop since the first previous_key is "".
 
         let path: Box<&str> = Box::new(&EN_FA_JSON_PATH);
-
         let mut _file = match File::create(path.as_ref()) {
             Ok(it) => {
                 match serde_json::to_writer(it, &dict) {

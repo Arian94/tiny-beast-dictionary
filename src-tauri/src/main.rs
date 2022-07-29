@@ -6,15 +6,15 @@
 #[macro_use]
 extern crate lazy_static;
 
-mod helper;
 mod google_translate;
+mod helper;
 
+use google_translate::Translator;
 use std::error::Error;
 use std::io::BufReader;
 use std::{collections::HashMap, fs::File};
-use google_translate::Translator;
-use tts_rust::GTTSClient;
 use tts_rust::languages::Languages;
+use tts_rust::GTTSClient;
 
 static JSON_DIR: &str = "json_dictionaries";
 static RAW_DIR: &str = "raw_dictionaries";
@@ -23,7 +23,7 @@ lazy_static! {
     static ref SHEET_NAME: &'static str = "EnglishPersianWordDatabase";
     static ref EN_FA_RAW_PATH: String = format!("{}/dictionary.xlsx", RAW_DIR);     // "dictionary.xlsx";
     static ref EN_FA_JSON_PATH: String = format!("{}/en-fa.json", JSON_DIR);        // "en-fa.json";
-    static ref EN_FA_DICT: HashMap<String, Vec<String>> = prepare_json_dict(&EN_FA_JSON_PATH).unwrap();
+    static ref EN_FA_DICT: HashMap<String, String> = prepare_json_dict(&EN_FA_JSON_PATH).unwrap();
 }
 
 // static mut STD_ONCE_COUNTER: Option<Mutex<HashMap<String, Vec<String>>>> = None;
@@ -53,19 +53,19 @@ fn main() {
         .expect("error while running tauri application");
 }
 
-fn prepare_json_dict(dictionary_path: &str) -> Result<HashMap<String, Vec<String>>, Box<dyn Error>> {
+fn prepare_json_dict(dictionary_path: &str) -> Result<HashMap<String, String>, Box<dyn Error>> {
     let env = tauri::Env::default();
     let context = tauri::generate_context!();
     let path_buf = tauri::api::path::resource_dir(context.package_info(), &env).unwrap();
     let absolute_path = format!("{}/{}", path_buf.to_str().unwrap(), dictionary_path);
     let file = File::open(absolute_path)?;
     let reader = BufReader::new(file);
-    let dict: HashMap<String, Vec<String>> = serde_json::from_reader(reader)?;
+    let dict = serde_json::from_reader(reader)?;
     Ok(dict)
 }
 
 #[tauri::command]
-fn find(word: &str) -> Result<Vec<String>, &str> {
+fn find(word: &str) -> Result<String, &str> {
     // let dict = &*global_dict().lock().unwrap();
     if let Some(found) = EN_FA_DICT.get(word) {
         let owned_word = found.to_owned();
@@ -77,22 +77,22 @@ fn find(word: &str) -> Result<Vec<String>, &str> {
 
 #[tauri::command]
 async fn google_translate(from: &str, to: &str, word: &str) -> Result<String, String> {
-    let translator_struct = Translator{
-        from,
-        to
-    };
+    let translator_struct = Translator { from, to };
     translator_struct.translate(&word).await
 }
 
 #[tauri::command]
 async fn speak<'a>(word: String, lang: String) {
+    if word.is_empty() {
+        return
+    }
     let narrator = GTTSClient {
-        volume: 1.0, 
+        volume: 1.0,
         language: match lang.as_str() {
             "en" => Languages::English,
             "fr" => Languages::French,
-            _ => Languages::English
-        }
+            _ => Languages::English,
+        },
     };
     narrator.speak(&word);
 }
