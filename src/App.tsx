@@ -1,7 +1,7 @@
 import { readText } from '@tauri-apps/api/clipboard';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/tauri';
-import { createRef, useEffect, useState } from 'react';
+import { createRef, useEffect, useRef, useState } from 'react';
 import './App.scss';
 import './assets/fonts/persian/NotoSansArabic.ttf';
 import { google_translate_icon } from './assets/images';
@@ -18,6 +18,7 @@ function App() {
   const [from, setFrom] = useState<CountriesValues | 'auto'>('auto');
   const [to, setTo] = useState<CountriesValues>('fa');
   const [loading, setLoading] = useState<boolean>(false);
+  const enterHandler = useRef<(this: HTMLInputElement, ev: KeyboardEvent) => any>();
   const inputElm = createRef<HTMLInputElement>();
   let clipboardBuffer: string | null;
 
@@ -39,13 +40,20 @@ function App() {
     listen<FocusEvent>('tauri://focus',
       () => readText().then(clip => readClipboard(clip))
     )
+  }, []);
 
-    inputElm.current?.addEventListener('keypress', function (e: KeyboardEvent) {
+  useEffect(() => {
+    if (enterHandler.current)
+      inputElm.current?.removeEventListener('keypress', enterHandler.current);
+    if (from === 'fa') return;
+
+    enterHandler.current = function (e: KeyboardEvent) {
       if (e.key !== 'Enter') return;
       const { value } = this;
       speak(value, from);
-    });
-  }, []);
+    }
+    inputElm.current?.addEventListener('keypress', enterHandler.current);
+  }, [from])
 
   useEffect(() => {
     const timeOutId = setTimeout(() => handler(), 500);
