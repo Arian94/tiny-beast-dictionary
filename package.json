@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "serve_dev": "yarn tauri dev",
+    "serve": "yarn tauri dev",
+    "build_app": "yarn tauri build",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",

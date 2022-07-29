@@ -1,7 +1,7 @@
 import { readText } from '@tauri-apps/api/clipboard';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/tauri';
-import { useEffect, useRef, useState } from 'react';
+import { createRef, useEffect, useState } from 'react';
 import './App.scss';
 import './assets/fonts/persian/NotoSansArabic.ttf';
 import { google_translate_icon } from './assets/images';
@@ -10,6 +10,7 @@ import { countries } from './countries';
 type CountriesKeys = keyof typeof countries;
 type CountriesValues = typeof countries[CountriesKeys];
 
+// todo save configs and settings
 function App() {
   const [translation, setTranslation] = useState("");
   const [value, setValue] = useState("");
@@ -17,12 +18,10 @@ function App() {
   const [from, setFrom] = useState<CountriesValues | 'auto'>('auto');
   const [to, setTo] = useState<CountriesValues>('fa');
   const [loading, setLoading] = useState<boolean>(false);
-  const inputElm = useRef<HTMLInputElement>();
+  const inputElm = createRef<HTMLInputElement>();
   let clipboardBuffer: string | null;
 
   useEffect(() => {
-    inputElm.current = document.getElementsByTagName('input')[0];
-
     const readClipboard = (clip: string | null) => {
       if (!clip?.trim()) return;
       if (clip === clipboardBuffer) return;
@@ -40,6 +39,12 @@ function App() {
     listen<FocusEvent>('tauri://focus',
       () => readText().then(clip => readClipboard(clip))
     )
+
+    inputElm.current?.addEventListener('keypress', function (e: KeyboardEvent) {
+      if (e.key !== 'Enter') return;
+      const { value } = this;
+      speak(value, from);
+    });
   }, []);
 
   useEffect(() => {
@@ -50,10 +55,10 @@ function App() {
   const langOptions = (option: 'from' | 'to') => {
     const ops: JSX.IntrinsicElements['option'][] = [];
     (Object.keys(countries) as CountriesKeys[])
+      .filter(country => option === 'from' ? to !== countries[country] : from !== countries[country])
       .map(country => {
         ops.push(<option key={option + country} value={countries[country]}>{country}</option>)
       })
-
     return ops
   }
 
@@ -72,8 +77,8 @@ function App() {
       translation = await invoke<string>('google_translate', { from, to, word: value });
     else {
       try {
-        const dt = await invoke<string[]>('find', { word: value });
-        translation = ('' + dt).replaceAll(",", " - ");
+        const dt = await invoke<string>('find', { word: value });
+        translation = dt;
       } catch (er: any) {
         translation = er;
       }
@@ -84,8 +89,6 @@ function App() {
   }
 
   const handler = () => {
-    if (!inputElm.current) return;
-    const { value } = inputElm.current;
     if (!value.trim()) return;
     if (!isNaN(+value)) return;
     setLoading(true);
@@ -95,15 +98,11 @@ function App() {
   return (
     <div className="App">
       <ul className="nav">
-        <li
-          className={activeTab === "online" ? "active" : ""}
-          onClick={() => setActiveTab('online')}>
+        <li className={activeTab === "online" ? "active" : ""} onClick={() => { setActiveTab('online'); setTranslation('') }}>
           Online
           <img src={google_translate_icon} />
         </li>
-        <li
-          className={activeTab === "offline" ? "active" : ""}
-          onClick={() => setActiveTab('offline')}>
+        <li className={activeTab === "offline" ? "active" : ""} onClick={() => { setActiveTab('offline'); setTranslation('') }}>
           En-Fa <sup>(Offline)</sup>
         </li>
       </ul>
@@ -112,8 +111,7 @@ function App() {
         <div className="language-options">
           <div className="from">
             <span>from</span>
-            <select key="from"
-              onChange={event => setFrom(event.target.value as CountriesValues)} value={from}>
+            <select key="from" onChange={event => setFrom(event.target.value as CountriesValues)} value={from}>
               <option value="auto">Detect</option>
               <>
                 {langOptions('from')}
@@ -136,14 +134,16 @@ function App() {
       }
 
       <div className="input">
-        <input type="search" autoFocus placeholder='type...' onChange={event => setValue(event.target.value)} />
+        <input ref={inputElm} autoFocus placeholder='search...' onChange={event => setValue(event.target.value)} />
         <button onClick={() => speak(value, from)} style={{ opacity: !value || from === 'fa' ? .5 : 1 }} disabled={!value || from === 'fa'}></button>
       </div>
 
       <fieldset className='translation' dir={to === 'fa' ? 'rtl' : 'ltr'} style={{ opacity: loading ? .5 : 1 }}>
-        <legend>Translation</legend>
+        <legend>
+          Translation
+          <button onClick={() => speak(translation, to)} style={{ display: !translation || to === 'fa' ? 'none' : 'block' }} disabled={!translation || to === 'fa'}></button>
+        </legend>
         {translation}
-        <button onClick={() => speak(translation, to)} style={{ opacity: !translation || to === 'fa' ? 0 : 1 }} disabled={!translation || to === 'fa'}></button>
       </fieldset>
     </div>
   )
