@@ -3,7 +3,6 @@
   min-width: 270px;
   padding: 0 .5rem;
   color: white;
-  background-color: rgb(0, 0, 0, 0.8);
 
   .nav {
     display: flex;
@@ -87,7 +86,6 @@
       height: 22px;
       width: 30px;
       top: 2px;
-      left: 2px;
       opacity: .5;
       background-image: url(assets/speaker_icon.svg);
       background-color: transparent;
@@ -114,6 +112,7 @@ fieldset {
   display: flex;
   font-family: 'PersianFont';
   word-break: break-all;
+  line-height: 17px;
   min-height: calc(100% - 150px);
   justify-content: space-between;
   padding-inline: 4px;
