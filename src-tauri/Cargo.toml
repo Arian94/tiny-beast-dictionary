@@ -1,35 +1,35 @@
 [package]
-name = "app"
-version = "0.1.0"
-description = "tiny app for online/offline dictionaries"
 authors = ["arian pourarian <arianpourarian@gmail.com>"]
-license = "MIT"
-repository = ""
 default-run = "app"
+description = "tiny app for online/offline dictionaries"
 edition = "2021"
+license = "MIT"
+name = "app"
+repository = ""
 rust-version = "1.57"
+version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "1.0.0-rc.12", features = [] }
+tauri-build = {version = "1.0.0-rc.12", features = [] }
 
 [dependencies]
-serde_json = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "1.0.0-rc.14", features = ["api-all"] }
 lazy_static = "1.4.0"
-reqwest = {version = "0.11.10", features = ["blocking"] }
+reqwest = {version = "0.11.10"}
 scraper = "0.13.0"
+serde = {version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tauri = {version = "1.0.5", features = ["api-all", "system-tray"] }
 tts_rust = "0.3.3"
 
 [features]
 # by default Tauri runs in production mode
 # when `tauri dev` runs it is executed with `cargo run --no-default-features` if `devPath` is an URL
-default = [ "custom-protocol" ]
+default = ["custom-protocol"]
 # this feature is used used for production builds where `devPath` points to the filesystem
 # DO NOT remove this
-custom-protocol = [ "tauri/custom-protocol" ]
+custom-protocol = ["tauri/custom-protocol"]
 
 [dev-dependencies]
 calamine = "0.18.0"

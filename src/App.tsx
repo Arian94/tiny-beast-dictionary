@@ -1,6 +1,7 @@
 import { readText } from '@tauri-apps/api/clipboard';
-import { listen } from '@tauri-apps/api/event';
+import { emit, listen, once } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/tauri';
+import { appWindow } from '@tauri-apps/api/window';
 import { createRef, MutableRefObject, useEffect, useRef, useState } from 'react';
 import './App.scss';
 import './assets/fonts/persian/NotoSansArabic.ttf';
@@ -9,8 +10,14 @@ import { countries } from './countries';
 
 type CountriesKeys = keyof typeof countries;
 type CountriesValues = typeof countries[CountriesKeys];
+type SavedConfig = {
+  activeTab: 'online' | 'offlie';
+  from: CountriesValues | 'auto';
+  to: CountriesValues;
+  x: string;
+  y: string
+}
 
-// todo save configs and settings
 function App() {
   const translationSpeakHandler = function (e: KeyboardEvent) {
     if (!translationRef.current) return;
@@ -28,6 +35,7 @@ function App() {
 
   const [inputVal, setInputVal] = useState("");
   const [activeTab, setActiveTab] = useState<'online' | 'offline'>('online');
+  const activeTabRef = useRef<'online' | 'offline'>('online');
   const fromRef = useRef<CountriesValues | 'auto'>('auto');
   const [from, setFrom] = useState<CountriesValues | 'auto'>('auto');
   const toRef = useRef<CountriesValues>('fa');
@@ -42,6 +50,35 @@ function App() {
   }
 
   useEffect(() => {
+    emit('front_is_up');
+
+    once<string>('saved_config', ({ payload }) => {
+      const { activeTab, from, to } = JSON.parse(payload) as SavedConfig
+      activeTab && setActiveTab(activeTab as 'online' | 'offline')
+      from && setFrom(from as CountriesValues)
+      to && setTo(to as CountriesValues)
+    })
+
+    const emitNewConfig = async () => {
+      const { x, y } = await appWindow.outerPosition()
+
+      emit('new_config', {
+        activeTab: activeTabRef.current,
+        from: fromRef.current,
+        to: toRef.current,
+        x,
+        y
+      });
+    }
+
+    appWindow.onCloseRequested(async (e) => {
+      e.preventDefault();
+      await emitNewConfig();
+      appWindow.close()
+    });
+
+    once('quit', () => emitNewConfig())
+
     inputRef.current?.addEventListener('keypress', inputSpeakHandler);
     window.addEventListener('keypress', translationSpeakHandler);
 
@@ -61,6 +98,10 @@ function App() {
       () => readText().then(clip => readClipboard(clip))
     )
   }, []);
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab])
 
   useEffect(() => {
     const timeOutId = setTimeout(() => handler(), 700);
@@ -90,6 +131,7 @@ function App() {
   const swapLang = () => {
     setFrom(to)
     setTo(from === 'auto' ? to === 'en' ? 'fr' : 'en' : from)
+    setInputVal(translationRef.current)
     setTimeout(() => handler(), 0);
   }
 
@@ -114,7 +156,7 @@ function App() {
   }
 
   const handler = () => {
-    if (!inputVal.trim() || !isNaN(+inputVal)) return;
+    if (!inputVal.trim()) return;
     setLoading(true);
     invokeBackend();
   };

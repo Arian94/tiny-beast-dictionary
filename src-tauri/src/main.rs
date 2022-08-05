@@ -10,21 +10,22 @@ mod google_translate;
 mod helper;
 
 use google_translate::Translator;
-use std::error::Error;
-use std::io::BufReader;
-use std::{collections::HashMap, fs::File};
+use helper::{read_json_file, write_payload, EN_FA_DICT, SETTINGS_FILENAME};
+use tauri::{
+    CustomMenuItem, Manager, PhysicalPosition, SystemTray, SystemTrayEvent, SystemTrayMenu,
+    SystemTrayMenuItem,
+};
 use tts_rust::languages::Languages;
 use tts_rust::GTTSClient;
 
-static JSON_DIR: &str = "json_dictionaries";
-static RAW_DIR: &str = "raw_dictionaries";
-
-lazy_static! {
-    static ref SHEET_NAME: &'static str = "EnglishPersianWordDatabase";
-    static ref EN_FA_RAW_PATH: String = format!("{}/dictionary.xlsx", RAW_DIR);     // "dictionary.xlsx";
-    static ref EN_FA_JSON_PATH: String = format!("{}/en-fa.json", JSON_DIR);        // "en-fa.json";
-    static ref EN_FA_DICT: HashMap<String, String> = prepare_json_dict(&EN_FA_JSON_PATH).unwrap();
-}
+// #[derive(Serialize, Deserialize, Debug)]
+// struct SavedConfig {
+//     active_tab: String,
+//     from: String,
+//     to: String,
+//     x: u16,
+//     y: u16,
+// }
 
 // static mut STD_ONCE_COUNTER: Option<Mutex<HashMap<String, Vec<String>>>> = None;
 // static INIT: Once = Once::new();
@@ -46,22 +47,78 @@ lazy_static! {
 fn main() {
     // println!("{:?}", *global_dict().lock().unwrap());
     // println!("{:?}", EN_FA_DICT.get("abandon"));
+    // here `"quit".to_string()` defines the menu item id, and the second parameter is the menu item label.
+    let quit = CustomMenuItem::new("quit".to_string(), "Quit");
+    let hide = CustomMenuItem::new("hide".to_string(), "Hide");
+    let tray_menu = SystemTrayMenu::new()
+        .add_item(quit)
+        .add_native_item(SystemTrayMenuItem::Separator)
+        .add_item(hide);
+    let tray = SystemTray::new().with_menu(tray_menu);
 
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![find, google_translate, speak])
+        .system_tray(tray)
+        .on_system_tray_event(move |app, event| match event {
+            SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
+                "quit" => {
+                    let window = app.get_window("main").unwrap();
+                    window.once("new_config", |event| {
+                        let payload = event.payload().unwrap();
+                        write_payload(SETTINGS_FILENAME, payload).unwrap();
+                        std::process::exit(0);
+                    });
+                    window.emit("quit", "quit button clicked").unwrap();
+                }
+                "hide" => {
+                    let item_handle = app.tray_handle().get_item(&id);
+                    let window = app.get_window("main").unwrap();
+                    println!("it is: {}", window.is_visible().unwrap_or(false));
+                    if window.is_visible().unwrap_or(false) {
+                        window.hide().unwrap();
+                        item_handle.set_title("Show").unwrap();
+                    } else {
+                        let pos = window.outer_position().unwrap();
+                        window.set_position(pos).unwrap();
+                        window.show().unwrap();
+                        item_handle.set_title("Hide").unwrap();
+                    }
+                }
+                _ => {}
+            },
+            _ => {}
+        })
+        .setup(|app| {
+            let window = app.get_window("main").unwrap();
+
+            match read_json_file::<String>(SETTINGS_FILENAME) {
+                Ok(config) => {
+                    let config_value: serde_json::Value = serde_json::from_str(&config)?;
+                    let config_map = config_value.as_object().unwrap();
+                    window.set_position(PhysicalPosition {
+                        x: config_map["x"].as_f64().unwrap(),
+                        y: config_map["y"].as_f64().unwrap(),
+                    })?;
+                    window.to_owned().listen("front_is_up", move |_| {
+                        window.emit("saved_config", config.to_owned()).unwrap();
+                    });
+                }
+                Err(err) => println!("{err}"),
+            };
+            Ok(())
+        })
+        .on_window_event(|e| match e.event() {
+            tauri::WindowEvent::CloseRequested { .. } => {
+                let window = e.window().get_window("main").unwrap();
+                window.once("new_config", |event| {
+                    let payload = event.payload().unwrap();
+                    write_payload(SETTINGS_FILENAME, payload).unwrap();
+                });
+            }
+            _ => {}
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
-}
-
-fn prepare_json_dict(dictionary_path: &str) -> Result<HashMap<String, String>, Box<dyn Error>> {
-    let env = tauri::Env::default();
-    let context = tauri::generate_context!();
-    let path_buf = tauri::api::path::resource_dir(context.package_info(), &env).unwrap();
-    let absolute_path = format!("{}/{}", path_buf.to_str().unwrap(), dictionary_path);
-    let file = File::open(absolute_path)?;
-    let reader = BufReader::new(file);
-    let dict = serde_json::from_reader(reader)?;
-    Ok(dict)
 }
 
 #[tauri::command]
@@ -84,7 +141,7 @@ async fn google_translate(from: &str, to: &str, word: &str) -> Result<String, St
 #[tauri::command]
 async fn speak<'a>(word: String, lang: String) {
     if word.is_empty() {
-        return
+        return;
     }
     let narrator = GTTSClient {
         volume: 1.0,

@@ -9,9 +9,13 @@
   },
   "package": {
     "productName": "tiny dictionary",
-    "version": "0.3.7"
+    "version": "0.5.8"
   },
   "tauri": {
+    "systemTray": {
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true
+    },
     "allowlist": {
       "all": true
     },
@@ -39,7 +43,7 @@
         "providerShortName": null,
         "signingIdentity": null
       },
-      "resources": ["json_dictionaries"],
+      "resources": ["json_dictionaries", "settings"],
       "shortDescription": "tiny app for online/offline dictionaries",
       "targets": "deb",
       "windows": {

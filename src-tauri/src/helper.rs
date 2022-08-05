@@ -1,6 +1,53 @@
+use std::error::Error;
+use std::{collections::HashMap, fs::File, io::BufReader};
+use serde::de::DeserializeOwned;
+
+static JSON_DIR: &str = "json_dictionaries";
+static RAW_DIR: &str = "raw_dictionaries";
+pub static SETTINGS_FILENAME: &str = "settings/settings.json";
+
+lazy_static! {
+    static ref SHEET_NAME: &'static str = "EnglishPersianWordDatabase";
+    static ref EN_FA_XLSX_PATH: String = format!("{}/dictionary.xlsx", RAW_DIR);
+    static ref EN_FA_JSON_PATH: String = format!("{}/en-fa.json", JSON_DIR);
+    pub static ref EN_FA_DICT: HashMap<String, String> = read_json_file(&EN_FA_JSON_PATH).unwrap();
+}
+
+pub fn find_absolute_path(path: &str) -> String {
+    let env = tauri::Env::default();
+    let context = tauri::generate_context!();
+    let path_buf = tauri::api::path::resource_dir(context.package_info(), &env).unwrap();
+    let absolute_path = format!("{}/{}", path_buf.to_str().unwrap(), path);
+    absolute_path
+}
+
+pub fn read_json_file<T>(json_path: &str) -> Result<T, Box<dyn Error>>
+where
+    T: DeserializeOwned + std::fmt::Debug,
+{
+    let absolute_path = find_absolute_path(json_path);
+    let file = File::open(absolute_path)?;
+    let reader = BufReader::new(file);
+    let json_file = serde_json::from_reader(reader)?;
+    Ok(json_file)
+}
+
+pub fn write_payload(filename: &str, payload: &str) -> Result<(), String> {
+    let absolute_path = find_absolute_path(filename);
+    match File::options().write(true).open(absolute_path) {
+        Ok(file) => {
+            match serde_json::to_writer(file, payload) {
+                Ok(it) => return Ok(it),
+                Err(err) => return Err(err.to_string()),
+            };
+        }
+        Err(err) => return Err(err.to_string()),
+    };
+}
+
 #[cfg(test)]
-pub mod tests {
-    use crate::{EN_FA_JSON_PATH, EN_FA_RAW_PATH, SHEET_NAME};
+mod tests {
+    use super::{EN_FA_JSON_PATH, EN_FA_XLSX_PATH, SHEET_NAME};
     use calamine::{open_workbook, Reader, Xlsx};
     use fast_image_resize as fr;
     use icns::{IconFamily, Image};
@@ -22,13 +69,13 @@ pub mod tests {
         }
 
         if excel.worksheet_range(sheet_name).is_none() {
-            return Err(String::from("something wrong about the file."));
+            return Err(String::from("something went wrong about the file."));
         }
 
         let range = excel.worksheet_range(sheet_name).unwrap().unwrap();
         let mut dict = HashMap::new();
         let mut value_buffer = String::new();
-        let mut previous_key = range.get((0,0)).unwrap().get_string().unwrap();
+        let mut previous_key = range.get((0, 0)).unwrap().get_string().unwrap();
         let mut current_key = "";
 
         range.rows().for_each(|row| {
@@ -47,10 +94,9 @@ pub mod tests {
 
         dict.insert(current_key.to_string(), value_buffer);
 
-        let path: Box<&str> = Box::new(&EN_FA_JSON_PATH);
-        let mut _file = match File::create(path.as_ref()) {
-            Ok(it) => {
-                match serde_json::to_writer(it, &dict) {
+        match File::create(&*EN_FA_JSON_PATH) {
+            Ok(file) => {
+                match serde_json::to_writer(file, &dict) {
                     Ok(it) => return Ok(it),
                     Err(err) => return Err(err.to_string()),
                 };
@@ -62,7 +108,7 @@ pub mod tests {
     #[test]
     fn read_raw_excel_write_to_json() {
         assert_eq!(
-            read_en_fa_excel_dictionary_file(&EN_FA_RAW_PATH, &SHEET_NAME),
+            read_en_fa_excel_dictionary_file(&EN_FA_XLSX_PATH, &SHEET_NAME),
             Ok(())
         );
     }
@@ -93,10 +139,7 @@ pub mod tests {
         icon_dir.write(file).unwrap();
 
         // Read source image from file
-        let img = ImageReader::open(icon_png_path)
-            .unwrap()
-            .decode()
-            .unwrap();
+        let img = ImageReader::open(icon_png_path).unwrap().decode().unwrap();
         let width = NonZeroU32::new(img.width()).unwrap();
         let height = NonZeroU32::new(img.height()).unwrap();
         let mut src_image = fr::Image::from_vec_u8(
