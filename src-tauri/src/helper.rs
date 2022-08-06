@@ -34,9 +34,9 @@ where
 
 pub fn write_payload(filename: &str, payload: &str) -> Result<(), String> {
     let absolute_path = find_absolute_path(filename);
-    match File::options().write(true).open(absolute_path) {
+    match File::options().write(true).truncate(true).open(absolute_path) {
         Ok(file) => {
-            match serde_json::to_writer(file, payload) {
+            match serde_json::to_writer(file, payload.trim()) {
                 Ok(it) => return Ok(it),
                 Err(err) => return Err(err.to_string()),
             };

@@ -65,8 +65,9 @@ fn main() {
                     let window = app.get_window("main").unwrap();
                     window.once("new_config", |event| {
                         let payload = event.payload().unwrap();
-                        write_payload(SETTINGS_FILENAME, payload).unwrap();
-                        std::process::exit(0);
+                        write_payload(SETTINGS_FILENAME, payload)
+                            .is_ok()
+                            .then(|| std::process::exit(0));
                     });
                     window.emit("quit", "quit button clicked").unwrap();
                 }
@@ -110,9 +111,11 @@ fn main() {
         .on_window_event(|e| match e.event() {
             tauri::WindowEvent::CloseRequested { .. } => {
                 let window = e.window().get_window("main").unwrap();
-                window.once("new_config", |event| {
+                window.to_owned().once("new_config", move |event| {
                     let payload = event.payload().unwrap();
-                    write_payload(SETTINGS_FILENAME, payload).unwrap();
+                    write_payload(SETTINGS_FILENAME, payload)
+                        .is_ok()
+                        .then(|| window.close().unwrap());
                 });
             }
             _ => {}

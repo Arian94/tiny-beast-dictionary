@@ -19,20 +19,6 @@ type SavedConfig = {
 }
 
 function App() {
-  const translationSpeakHandler = function (e: KeyboardEvent) {
-    if (!translationRef.current) return;
-    if (toRef.current === 'fa') return;
-    if (e.key !== 'Enter' || !e.ctrlKey) return;
-    speak(translationRef.current, toRef.current);
-  }
-
-  const inputSpeakHandler = function (this: HTMLInputElement, e: KeyboardEvent) {
-    if (e.key !== 'Enter') return;
-    if (e.ctrlKey) return;
-    const { value } = this;
-    speak(value, fromRef.current);
-  }
-
   const [inputVal, setInputVal] = useState("");
   const [activeTab, setActiveTab] = useState<'online' | 'offline'>('online');
   const activeTabRef = useRef<'online' | 'offline'>('online');
@@ -44,9 +30,24 @@ function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const inputRef = createRef<HTMLInputElement>();
   let clipboardBuffer: string | null;
+  let isSpeaking = false;
 
   const setRefCurrent = (ref: MutableRefObject<string>, value: string) => {
     ref.current = value
+  }
+
+  function translationSpeakHandler (e: KeyboardEvent) {
+    if (!translationRef.current) return;
+    if (toRef.current === 'fa') return;
+    if (e.key !== 'Enter' || !e.ctrlKey) return;
+    speak(translationRef.current, toRef.current);
+  }
+
+  function inputSpeakHandler (this: HTMLInputElement, e: KeyboardEvent) {
+    if (e.key !== 'Enter') return;
+    if (e.ctrlKey) return;
+    const { value } = this;
+    speak(value, fromRef.current);
   }
 
   useEffect(() => {
@@ -71,10 +72,9 @@ function App() {
       });
     }
 
-    appWindow.onCloseRequested(async (e) => {
+    appWindow.onCloseRequested(e => {
       e.preventDefault();
-      await emitNewConfig();
-      appWindow.close()
+      emitNewConfig();
     });
 
     once('quit', () => emitNewConfig())
@@ -136,7 +136,9 @@ function App() {
   }
 
   const speak = (word: string, lang: CountriesValues | 'auto') => {
-    invoke<string>('speak', { word, lang });
+    if (isSpeaking) return;
+    isSpeaking = true;
+    invoke<string>('speak', { word, lang }).then(() => isSpeaking = false);
   }
 
   const invokeBackend = async () => {
