@@ -4,8 +4,6 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { appWindow } from '@tauri-apps/api/window';
 import { createRef, MutableRefObject, useEffect, useRef, useState } from 'react';
 import './App.scss';
-import './assets/fonts/persian/NotoSansArabic.ttf';
-import { google_translate_icon } from './assets/images';
 import { countries } from './countries';
 
 type CountriesKeys = keyof typeof countries;
@@ -36,14 +34,14 @@ function App() {
     ref.current = value
   }
 
-  function translationSpeakHandler (e: KeyboardEvent) {
+  function translationSpeakHandler(e: KeyboardEvent) {
     if (!translationRef.current) return;
     if (toRef.current === 'fa') return;
     if (e.key !== 'Enter' || !e.ctrlKey) return;
     speak(translationRef.current, toRef.current);
   }
 
-  function inputSpeakHandler (this: HTMLInputElement, e: KeyboardEvent) {
+  function inputSpeakHandler(this: HTMLInputElement, e: KeyboardEvent) {
     if (e.key !== 'Enter') return;
     if (e.ctrlKey) return;
     const { value } = this;
@@ -165,47 +163,43 @@ function App() {
 
   return (
     <div className="App">
-      <ul className="nav">
-        <li className={activeTab === "online" ? "active" : ""} onClick={() => { setActiveTab('online'); setRefCurrent(translationRef, '') }}>
-          Online
-          <img src={google_translate_icon} />
-        </li>
-        <li className={activeTab === "offline" ? "active" : ""} onClick={() => { setActiveTab('offline'); setRefCurrent(translationRef, '') }}>
-          En-Fa <sup>(Offline)</sup>
-        </li>
-      </ul>
+      <div className="switches">
+        {activeTab === "online" ?
+          <div className="language-options">
+            <div className="from">
+              <span>from</span>
+              <select key="from" value={from} onChange={event => setFrom(event.target.value as CountriesValues)}>
+                <option value="auto">Detect</option>
+                <>
+                  {langOptions('from')}
+                </>
+              </select>
+            </div>
 
-      {activeTab === "online" ?
-        <div className="language-options">
-          <div className="from">
-            <span>from</span>
-            <select key="from" value={from} onChange={event => setFrom(event.target.value as CountriesValues)}>
-              <option value="auto">Detect</option>
-              <>
-                {langOptions('from')}
-              </>
-            </select>
-          </div>
+            <button onClick={swapLang}></button>
 
-          <button onClick={swapLang}></button>
+            <div className="to">
+              <span>to</span>
+              <select key="to" value={to} onChange={event => setTo(event.target.value as CountriesValues)}>
+                <>
+                  {langOptions('to')}
+                </>
+              </select>
+            </div>
+          </div> : undefined
+        }
 
-          <div className="to">
-            <span>to</span>
-            <select key="to" value={to} onChange={event => setTo(event.target.value as CountriesValues)}>
-              <>
-                {langOptions('to')}
-              </>
-            </select>
-          </div>
-        </div> : undefined
-      }
+        <button className='mode-changer' title={`go ${activeTab === 'online' ? 'offline' : 'online'}`} style={{ filter: activeTab === 'online' ? 'grayscale(0)' : 'grayscale(1)' }}
+          onClick={() => { activeTab === "online" ? setActiveTab('offline') : setActiveTab('online'); setRefCurrent(translationRef, '') }}>
+        </button>
+      </div>
 
       <div className="input">
         <input ref={inputRef} autoFocus placeholder={from === 'fa' ? 'جستجو...' : 'search...'} value={inputVal} onInput={event => setInputVal(event.currentTarget.value)}
           style={{
             direction: from === 'fa' ? 'rtl' : 'ltr',
-            fontFamily: from === 'fa' ? 'PersianFont' : 'inherit',
-            fontSize: from === 'fa' ? '10px' : 'inherit'
+            fontFamily: from === 'fa' ? 'Noto Naskh' : 'inherit',
+            fontSize: from === 'fa' ? '15px' : ''
           }} />
         <button onClick={() => speak(inputVal, from)}
           style={{

@@ -1,74 +1,53 @@
 .App {
   height: 99vh;
   min-width: 270px;
-  padding: 0 .5rem;
+  padding: 0 .3rem;
   color: white;
 
-  .nav {
+  .switches {
     display: flex;
-    margin: .1rem auto .5rem;
-    padding-left: 0px;
-    align-items: center;
-    justify-content: space-between;
-    border: 1px solid rgba(67, 67, 226, 0.295);
 
-    img {
-      width: 20px;
-      margin-inline-start: 2px;
-    }
-  }
-
-  .nav li {
-    width: 50%;
-    padding: .2rem;
-    list-style: none;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.7s;
-  }
-
-  .nav li:first-child {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .nav li:hover {
-    background: rgba(50, 105, 224, 0.15);
-  }
-
-  .nav li.active {
-    background: rgb(39, 39, 126);
-  }
-
-  .language-options {
-    display: flex;
-    margin-bottom: 10px;
-
-    :is(.to, .from) {
+    .language-options {
       display: flex;
-      flex-direction: column;
       flex-grow: 1;
+      margin-bottom: 10px;
 
-      span {
-        font-size: 10px;
-        margin-inline-start: 4px;
+      :is(.to, .from) {
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1;
+
+        span {
+          font-size: 10px;
+          margin-inline-start: 4px;
+        }
+      }
+
+      button {
+        height: 30px;
+        width: 30px;
+        align-self: end;
+        margin-inline: 4px;
+        margin-bottom: 2px;
+        background: url(assets/refresh.ico) no-repeat center;
+        background-color: white;
+        background-size: 20px;
+        border-radius: 15px;
+        border: 1px solid;
+        cursor: pointer;
       }
     }
 
-    button {
-      height: 30px;
+    .mode-changer {
+      position: relative;
       width: 30px;
-      align-self: end;
-      margin-inline: 4px;
-      margin-bottom: 2px;
-      background-color: white;
-      background-image: url(assets/refresh.ico);
-      background-repeat: no-repeat;
-      background-position: center;
-      background-size: 20px;
-      border-radius: 15px;
-      border: 1px solid;
+      height: 30px;
+      right: -5px;
+      background: url(assets/online.svg) no-repeat center;
+      background-size: 25px;
+      border: unset;
+      border-left: 1px groove #1ea7c6;
+      border-bottom: 1px groove #1ea7c6;
       cursor: pointer;
     }
   }
@@ -78,6 +57,7 @@
 
     input {
       width: -webkit-fill-available;
+      height: 20px;
       padding-inline-start: 28px;
     }
 
@@ -86,11 +66,8 @@
       height: 22px;
       width: 30px;
       top: 2px;
-      opacity: .5;
-      background-image: url(assets/speaker_icon.svg);
+      background: url(assets/speaker_icon.svg) no-repeat center;
       background-color: transparent;
-      background-repeat: no-repeat;
-      background-position: center;
       background-size: 20px;
       border: unset;
       border-radius: 6px;
@@ -110,13 +87,14 @@
 fieldset {
   position: relative;
   display: flex;
-  font-family: 'PersianFont';
+  font-family: 'Noto Naskh';
   word-break: break-all;
-  line-height: 17px;
-  min-height: calc(100% - 150px);
+  line-height: 20px;
+  min-height: calc(100% - 115px);
   justify-content: space-between;
+  padding-block-start: 8px;
   padding-inline: 4px;
-  margin-block: 0.8rem;
+  margin-block: 1rem;
   margin-inline: 0;
   background-color: rgba(166, 214, 240, 0.1);
   border: 1px solid rgb(63, 63, 117);
@@ -138,9 +116,9 @@ fieldset {
     min-width: 30px;
     top: -3px;
     right: 10px;
-    background-image: url(assets/speaker_icon.svg);
-    background-repeat: no-repeat;
-    background-position: center;
+    background: url(assets/speaker_icon.svg) no-repeat center;
+    background-color: white;
+    opacity: .7;
     background-size: 20px;
     border: unset;
     border-radius: 15px;

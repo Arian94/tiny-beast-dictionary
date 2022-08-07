@@ -9,7 +9,7 @@
   },
   "package": {
     "productName": "tiny dictionary",
-    "version": "0.5.10"
+    "version": "0.5.11"
   },
   "tauri": {
     "systemTray": {
