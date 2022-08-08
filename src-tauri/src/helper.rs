@@ -1,6 +1,7 @@
+use serde::de::DeserializeOwned;
+use serde_json::Value;
 use std::error::Error;
 use std::{collections::HashMap, fs::File, io::BufReader};
-use serde::de::DeserializeOwned;
 
 static JSON_DIR: &str = "json_dictionaries";
 static RAW_DIR: &str = "raw_dictionaries";
@@ -34,9 +35,38 @@ where
 
 pub fn write_payload(filename: &str, payload: &str) -> Result<(), String> {
     let absolute_path = find_absolute_path(filename);
-    match File::options().write(true).truncate(true).open(absolute_path) {
+    let config_value = serde_json::from_str::<Value>(payload).unwrap();
+
+    match File::options()
+        .write(true)
+        .truncate(true)
+        .open(absolute_path)
+    {
         Ok(file) => {
-            match serde_json::to_writer(file, payload.trim()) {
+            match serde_json::to_writer(file, &config_value) {
+                Ok(it) => return Ok(it),
+                Err(err) => return Err(err.to_string()),
+            };
+        }
+        Err(err) => Err(err.to_string()),
+    }
+}
+
+async fn rectify_incorrect_json(url: &str) -> Result<Value, reqwest::Error> {
+    // todo get url from filename using a hashmap
+    let mut file = reqwest::get(url).await?.text().await?;
+    file.pop();
+    file.insert(0, '[');
+    file.push(']');
+    let file = file.replace("}\n", "},");
+    let file_value = serde_json::from_str::<Value>(&file).unwrap();
+    Ok(file_value)
+}
+
+fn create_write_file(filename: &str, file_value: Value) -> Result<(), String> {
+    match File::create(filename) {
+        Ok(file) => {
+            match serde_json::to_writer(file, &file_value) {
                 Ok(it) => return Ok(it),
                 Err(err) => return Err(err.to_string()),
             };
@@ -45,8 +75,16 @@ pub fn write_payload(filename: &str, payload: &str) -> Result<(), String> {
     };
 }
 
+async fn write_rectified_json(filename: &str, url: &str) -> Result<(), String> {
+    match rectify_incorrect_json(url).await {
+        Ok(val) => create_write_file(filename, val),
+        Err(err) => Err(err.to_string()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::helper::write_rectified_json;
     use super::{EN_FA_JSON_PATH, EN_FA_XLSX_PATH, SHEET_NAME};
     use calamine::{open_workbook, Reader, Xlsx};
     use fast_image_resize as fr;
@@ -60,6 +98,7 @@ mod tests {
         io::{BufReader, BufWriter},
         num::NonZeroU32,
     };
+    use tauri::async_runtime::block_on;
 
     fn read_en_fa_excel_dictionary_file(path: &str, sheet_name: &str) -> Result<(), String> {
         let mut excel: Xlsx<_> = open_workbook(path).unwrap();
@@ -111,6 +150,15 @@ mod tests {
             read_en_fa_excel_dictionary_file(&EN_FA_XLSX_PATH, &SHEET_NAME),
             Ok(())
         );
+    }
+
+    #[test]
+    fn read_kaikki_json() {
+        let g = block_on(write_rectified_json(
+            "src/corrected-french.json",
+            "https://kaikki.org/dictionary/French/by-pos/particle/kaikki.org-dictionary-French-by-pos-particle-xMQliI",
+        ));
+        assert_eq!(g, Ok(()));
     }
 
     #[test]

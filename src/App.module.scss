@@ -7,10 +7,9 @@
   .switches {
     display: flex;
 
-    .language-options {
+    .languageOptions {
       display: flex;
       flex-grow: 1;
-      margin-bottom: 10px;
 
       :is(.to, .from) {
         display: flex;
@@ -34,11 +33,46 @@
         background-size: 20px;
         border-radius: 15px;
         border: 1px solid;
-        cursor: pointer;
       }
     }
 
-    .mode-changer {
+    .addOrRemoveLangs {
+      display: flex;
+      flex-grow: 1;
+
+      button {
+        width: 50px;
+        height: 30px;
+        margin-block-start: 12px;
+        margin-inline-end: 10px;
+        border-radius: 9px;
+        background: url(assets/add.svg) left no-repeat, url(assets/delete.svg) right no-repeat;
+        background-size: 20px, 20px;
+        background-position-x: 4px, 28px;
+        background-color: rgb(28, 34, 28);
+        transition: background-color .3s ease-in;
+
+        &:hover {
+          background-color: var(--primary);
+        }
+      }
+
+      .offlineDict {
+        display: flex;
+        flex-grow: 1;
+        flex-direction: column;
+
+        span {
+          font-size: 10px;
+        }
+      }
+    }
+
+    :is(.languageOptions, .addOrRemoveLangs) {
+      margin-block-end: 10px;
+    }
+
+    .modeChanger {
       position: relative;
       width: 30px;
       height: 30px;
@@ -48,7 +82,12 @@
       border: unset;
       border-left: 1px groove #1ea7c6;
       border-bottom: 1px groove #1ea7c6;
-      cursor: pointer;
+      border-bottom-left-radius: 4px;
+      transition: background-position .3s ease;
+
+      &:hover {
+        background-position: center -10%;
+      }
     }
   }
 
@@ -69,9 +108,7 @@
       background: url(assets/speaker_icon.svg) no-repeat center;
       background-color: transparent;
       background-size: 20px;
-      border: unset;
       border-radius: 6px;
-      cursor: pointer;
 
       &:active {
         background-color: rgb(190, 194, 255);
@@ -118,11 +155,9 @@ fieldset {
     right: 10px;
     background: url(assets/speaker_icon.svg) no-repeat center;
     background-color: white;
-    opacity: .7;
     background-size: 20px;
-    border: unset;
     border-radius: 15px;
-    cursor: pointer;
+    opacity: .7;
 
     &:active {
       background-color: rgb(190, 194, 255);

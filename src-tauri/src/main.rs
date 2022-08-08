@@ -9,6 +9,8 @@ extern crate lazy_static;
 mod google_translate;
 mod helper;
 
+use std::collections::HashMap;
+
 use google_translate::Translator;
 use helper::{read_json_file, write_payload, EN_FA_DICT, SETTINGS_FILENAME};
 use tauri::{
@@ -92,13 +94,11 @@ fn main() {
         .setup(|app| {
             let window = app.get_window("main").unwrap();
 
-            match read_json_file::<String>(SETTINGS_FILENAME) {
+            match read_json_file::<HashMap<String, serde_json::Value>>(SETTINGS_FILENAME) {
                 Ok(config) => {
-                    let config_value: serde_json::Value = serde_json::from_str(&config)?;
-                    let config_map = config_value.as_object().unwrap();
                     window.set_position(PhysicalPosition {
-                        x: config_map["x"].as_f64().unwrap(),
-                        y: config_map["y"].as_f64().unwrap(),
+                        x: config["x"].as_f64().unwrap(),
+                        y: config["y"].as_f64().unwrap(),
                     })?;
                     window.to_owned().listen("front_is_up", move |_| {
                         window.emit("saved_config", config.to_owned()).unwrap();

@@ -3,8 +3,9 @@ import { emit, listen, once } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/tauri';
 import { appWindow } from '@tauri-apps/api/window';
 import { createRef, MutableRefObject, useEffect, useRef, useState } from 'react';
-import './App.scss';
 import { countries } from './countries';
+import { Modal } from './Modal';
+import styles from './App.module.scss';
 
 type CountriesKeys = keyof typeof countries;
 type CountriesValues = typeof countries[CountriesKeys];
@@ -27,6 +28,7 @@ function App() {
   const translationRef = useRef('');
   const [loading, setLoading] = useState<boolean>(false);
   const inputRef = createRef<HTMLInputElement>();
+  const [isOpen, setIsOpen] = useState(false);
   let clipboardBuffer: string | null;
   let isSpeaking = false;
 
@@ -51,8 +53,7 @@ function App() {
   useEffect(() => {
     emit('front_is_up');
 
-    once<string>('saved_config', ({ payload }) => {
-      const { activeTab, from, to } = JSON.parse(payload) as SavedConfig
+    once<SavedConfig>('saved_config', ({ payload: { activeTab, from, to } }) => {
       activeTab && setActiveTab(activeTab as 'online' | 'offline')
       from && setFrom(from as CountriesValues)
       to && setTo(to as CountriesValues)
@@ -162,11 +163,12 @@ function App() {
   };
 
   return (
-    <div className="App">
-      <div className="switches">
+    <div className={styles.App}>
+      {isOpen && <Modal setIsOpen={setIsOpen} />}
+      <div className={styles.switches}>
         {activeTab === "online" ?
-          <div className="language-options">
-            <div className="from">
+          <div className={styles.languageOptions}>
+            <div className={styles.from}>
               <span>from</span>
               <select key="from" value={from} onChange={event => setFrom(event.target.value as CountriesValues)}>
                 <option value="auto">Detect</option>
@@ -178,7 +180,7 @@ function App() {
 
             <button onClick={swapLang}></button>
 
-            <div className="to">
+            <div className={styles.to}>
               <span>to</span>
               <select key="to" value={to} onChange={event => setTo(event.target.value as CountriesValues)}>
                 <>
@@ -186,22 +188,36 @@ function App() {
                 </>
               </select>
             </div>
-          </div> : undefined
+          </div>
+          :
+          <div className={styles.addOrRemoveLangs}>
+            <button title="Add or Remove" onClick={() => setIsOpen(true)}></button>
+            <div className={styles.offlineDict}>
+              <span>Select an offline dictionary:</span>
+              <select>
+                <>
+                  <option value="fr">French</option>
+                </>
+              </select>
+            </div>
+          </div>
         }
 
-        <button className='mode-changer' title={`go ${activeTab === 'online' ? 'offline' : 'online'}`} style={{ filter: activeTab === 'online' ? 'grayscale(0)' : 'grayscale(1)' }}
+        <button className={styles.modeChanger} title={`Go ${activeTab === 'online' ? 'offline' : 'online'}`} style={{ filter: activeTab === 'online' ? 'grayscale(0)' : 'grayscale(.8)' }}
           onClick={() => { activeTab === "online" ? setActiveTab('offline') : setActiveTab('online'); setRefCurrent(translationRef, '') }}>
         </button>
       </div>
 
-      <div className="input">
-        <input ref={inputRef} autoFocus placeholder={from === 'fa' ? 'جستجو...' : 'search...'} value={inputVal} onInput={event => setInputVal(event.currentTarget.value)}
+      <div className={styles.input}>
+        <input ref={inputRef} autoFocus maxLength={256} placeholder={from === 'fa' ? 'جستجو...' : 'search...'} value={inputVal} onInput={event => setInputVal(event.currentTarget.value)}
           style={{
             direction: from === 'fa' ? 'rtl' : 'ltr',
             fontFamily: from === 'fa' ? 'Noto Naskh' : 'inherit',
             fontSize: from === 'fa' ? '15px' : ''
           }} />
-        <button onClick={() => speak(inputVal, from)}
+        <button
+          title="Press Enter"
+          onClick={() => speak(inputVal, from)}
           style={{
             opacity: !inputVal || from === 'fa' ? .5 : 1, left: from !== 'fa' ? '2px' : 'unset', right: from !== 'fa' ? 'unset' : '2px',
             transform: from === 'fa' ? 'scaleX(-1)' : 'unset'
@@ -210,10 +226,12 @@ function App() {
         </button>
       </div>
 
-      <fieldset className='translation' dir={to === 'fa' ? 'rtl' : 'ltr'} style={{ opacity: loading ? .5 : 1 }}>
+      <fieldset className={styles.translation} dir={to === 'fa' ? 'rtl' : 'ltr'} style={{ opacity: loading ? .5 : 1 }}>
         <legend>
           Translation
-          <button onClick={() => speak(translationRef.current, to)} style={{ display: !translationRef.current || to === 'fa' ? 'none' : 'block' }}
+          <button
+            title="Press CTRL + Enter"
+            onClick={() => speak(translationRef.current, to)} style={{ display: !translationRef.current || to === 'fa' ? 'none' : 'block' }}
             disabled={!translationRef || to === 'fa'}>
           </button>
         </legend>
