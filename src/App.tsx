@@ -3,9 +3,9 @@ import { emit, listen, once } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/tauri';
 import { appWindow } from '@tauri-apps/api/window';
 import { createRef, MutableRefObject, useEffect, useRef, useState } from 'react';
+import styles from './App.module.scss';
 import { countries } from './countries';
 import { Modal } from './Modal';
-import styles from './App.module.scss';
 
 type CountriesKeys = keyof typeof countries;
 type CountriesValues = typeof countries[CountriesKeys];
@@ -29,6 +29,7 @@ function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const inputRef = createRef<HTMLInputElement>();
   const [isOpen, setIsOpen] = useState(false);
+  const isOverlappingReqEmitted = useRef(false);
   let clipboardBuffer: string | null;
   let isSpeaking = false;
 
@@ -103,6 +104,9 @@ function App() {
   }, [activeTab])
 
   useEffect(() => {
+    if (loading)
+      isOverlappingReqEmitted.current = true;
+
     const timeOutId = setTimeout(() => handler(), 700);
     return () => clearTimeout(timeOutId);
   }, [inputVal]);
@@ -142,18 +146,21 @@ function App() {
 
   const invokeBackend = async () => {
     let translationVal = '';
-    if (activeTab === 'online')
-      translationVal = await invoke<string>('google_translate', { from: fromRef.current, to: toRef.current, word: inputVal });
-    else {
-      try {
-        const dt = await invoke<string>('find', { word: inputVal });
-        translationVal = dt;
-      } catch (er: any) {
-        translationVal = er;
-      }
+    try {
+      if (activeTab === 'online')
+        translationVal = await invoke<string>('google_translate', { from: fromRef.current, to: toRef.current, word: inputVal });
+      else
+        translationVal = await invoke<string>('find', { word: inputVal });
+    } catch (er: any) {
+      translationVal = er === 'not found' ? er : 'connection error';
     }
-    setRefCurrent(translationRef, translationVal)
-    setLoading(false)
+
+    if (isOverlappingReqEmitted.current)
+      isOverlappingReqEmitted.current = false;
+    else {
+      setRefCurrent(translationRef, translationVal)
+      setLoading(false)
+    }
   }
 
   const handler = () => {
