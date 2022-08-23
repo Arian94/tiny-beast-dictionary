@@ -4,11 +4,11 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { appWindow } from '@tauri-apps/api/window';
 import { createRef, MutableRefObject, useEffect, useRef, useState } from 'react';
 import styles from './App.module.scss';
-import { countries } from './countries';
+import { onlineDictionaries } from './countries';
 import { Modal } from './Modal';
 
-type CountriesKeys = keyof typeof countries;
-type CountriesValues = typeof countries[CountriesKeys];
+type CountriesKeys = keyof typeof onlineDictionaries;
+type CountriesValues = typeof onlineDictionaries[CountriesKeys];
 type SavedConfig = {
   activeTab: 'online' | 'offlie';
   from: CountriesValues | 'auto';
@@ -23,8 +23,8 @@ function App() {
   const activeTabRef = useRef<'online' | 'offline'>('online');
   const fromRef = useRef<CountriesValues | 'auto'>('auto');
   const [from, setFrom] = useState<CountriesValues | 'auto'>('auto');
-  const toRef = useRef<CountriesValues>('fa');
-  const [to, setTo] = useState<CountriesValues>('fa');
+  const toRef = useRef<CountriesValues>('en');
+  const [to, setTo] = useState<CountriesValues>('en');
   const translationRef = useRef('');
   const [loading, setLoading] = useState<boolean>(false);
   const inputRef = createRef<HTMLInputElement>();
@@ -123,10 +123,10 @@ function App() {
 
   const langOptions = (option: 'from' | 'to') => {
     const ops: JSX.IntrinsicElements['option'][] = [];
-    (Object.keys(countries) as CountriesKeys[])
-      .filter(country => option === 'from' ? to !== countries[country] : from !== countries[country])
+    (Object.keys(onlineDictionaries) as CountriesKeys[])
+      .filter(country => option === 'from' ? to !== onlineDictionaries[country] : from !== onlineDictionaries[country])
       .map(country => {
-        ops.push(<option key={option + country} value={countries[country]}>{country}</option>)
+        ops.push(<option key={option + country} value={onlineDictionaries[country]}>{country}</option>)
       })
     return ops
   }
@@ -218,22 +218,22 @@ function App() {
       <div className={styles.input}>
         <input ref={inputRef} autoFocus maxLength={256} placeholder={from === 'fa' ? 'جستجو...' : 'search...'} value={inputVal} onInput={event => setInputVal(event.currentTarget.value)}
           style={{
-            direction: from === 'fa' ? 'rtl' : 'ltr',
-            fontFamily: from === 'fa' ? 'Noto Naskh' : 'inherit',
-            fontSize: from === 'fa' ? '15px' : ''
+            direction: from === 'fa' || from === 'ar' ? 'rtl' : 'ltr',
+            fontFamily: from === 'fa' || from === 'ar' ? 'Noto Naskh' : 'inherit',
+            fontSize: from === 'fa' || from === 'ar' ? '15px' : ''
           }} />
         <button
           title="Press Enter"
           onClick={() => speak(inputVal, from)}
           style={{
-            opacity: !inputVal || from === 'fa' ? .5 : 1, left: from !== 'fa' ? '2px' : 'unset', right: from !== 'fa' ? 'unset' : '2px',
-            transform: from === 'fa' ? 'scaleX(-1)' : 'unset'
+            opacity: !inputVal || from === 'fa' ? .5 : 1, left: from !== 'fa' && from !== 'ar' ? '2px' : 'unset', right: from !== 'fa' && from !== 'ar' ? 'unset' : '2px',
+            transform: from === 'fa' || from === 'ar' ? 'scaleX(-1)' : 'unset'
           }}
           disabled={!inputVal || from === 'fa'}>
         </button>
       </div>
 
-      <fieldset className={styles.translation} dir={to === 'fa' ? 'rtl' : 'ltr'} style={{ opacity: loading ? .5 : 1 }}>
+      <fieldset className={styles.translation} dir={to === 'fa' || to === 'ar' ? 'rtl' : 'ltr'} style={{ opacity: loading ? .5 : 1 }}>
         <legend>
           Translation
           <button

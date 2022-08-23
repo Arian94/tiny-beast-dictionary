@@ -62,11 +62,22 @@
             border-radius: 5px;
 
             .dict {
+                display: flex;
+                height: 30px;
+                justify-content: space-between;
                 padding-block: 4px;
                 padding-inline-start: 2px;
+                padding-inline-end: 8px;
+                align-items: center;
+                border-bottom: 1px solid rgb(51, 51, 51);
 
                 &:hover {
-                    background-color: #256b;
+                    background-color: rgba(34, 85, 102, 0.3);
+                }
+
+                button {
+                    width: 30px;
+                    height: 100%;
                 }
             }
         }
