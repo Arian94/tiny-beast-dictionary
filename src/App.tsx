@@ -70,15 +70,15 @@ function App() {
   }
 
   useEffect(() => {
-    emit('front_is_up');
-
     once<SavedConfig>('saved_config', ({ payload: { activeTab, from, to, selectedOfflineDict, downloadedDicts } }) => {
       activeTab && setActiveTab(activeTab as 'online' | 'offline')
-      from && setFrom(from as CountriesValues)
-      to && setTo(to as CountriesValues)
+      from && setFrom(from)
+      to && setTo(to)
       selectedOfflineDict && setSelectedOfflineDict(selectedOfflineDict)
       downloadedDicts?.length && setDownloadedDicts(downloadedDicts)
-    })
+    });
+
+    emit('front_is_up');
 
     const emitNewConfig = async () => {
       const { x, y } = await appWindow.outerPosition()
