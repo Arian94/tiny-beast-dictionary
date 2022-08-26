@@ -9,7 +9,9 @@ extern crate lazy_static;
 mod google_translate;
 mod helper;
 
+use std::borrow::BorrowMut;
 use std::collections::HashMap;
+use std::sync::{Mutex, Once};
 
 use google_translate::Translator;
 use helper::{read_json_file, write_payload, EN_FA_DICT, SETTINGS_FILENAME};
@@ -29,8 +31,8 @@ use tts_rust::GTTSClient;
 //     y: u16,
 // }
 
-// static mut STD_ONCE_COUNTER: Option<Mutex<HashMap<String, Vec<String>>>> = None;
-// static INIT: Once = Once::new();
+static mut STD_ONCE_COUNTER: Option<Mutex<&mut tauri::App>> = None;
+static INIT: Once = Once::new();
 
 // fn global_dict<'a>() -> &'a Mutex<HashMap<String, Vec<String>>> {
 //     INIT.call_once(|| {
@@ -59,7 +61,7 @@ fn main() {
     let tray = SystemTray::new().with_menu(tray_menu);
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![find, google_translate, speak])
+        .invoke_handler(tauri::generate_handler![find, google_translate, speak, download_dict])
         .system_tray(tray)
         .on_system_tray_event(move |app, event| match event {
             SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
@@ -92,6 +94,14 @@ fn main() {
             _ => {}
         })
         .setup(|app| {
+            // INIT.call_once(|| {
+            //     // Since this access is inside a call_once, before any other accesses, it is safe
+            //     unsafe {
+            //         // let dict = prepare_json_dict(&EN_FA_JSON_PATH).unwrap();
+            //         *STD_ONCE_COUNTER.borrow_mut() = Some(Mutex::new(app));
+            //     }
+            // });
+
             let window = app.get_window("main").unwrap();
 
             match read_json_file::<HashMap<String, serde_json::Value>>(SETTINGS_FILENAME) {
@@ -212,4 +222,11 @@ async fn speak<'a>(word: String, lang: String) {
         },
     };
     narrator.speak(&word);
+}
+
+#[tauri::command]
+async fn download_dict(name: &str, app_window: tauri::Window) -> Result<(), String> {
+    let window = app_window.get_window("main").unwrap();
+    helper::download_dict(name, window).await?;
+    Ok(())
 }

@@ -15,8 +15,9 @@ version = "0.1.0"
 tauri-build = {version = "1.0.0-rc.12", features = [] }
 
 [dependencies]
+futures-util = "0.3.21"
 lazy_static = "1.4.0"
-reqwest = {version = "0.11.10"}
+reqwest = {version = "0.11.10", features = ["stream"] }
 scraper = "0.13.0"
 serde = {version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -32,7 +33,6 @@ default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 
 [dev-dependencies]
-calamine = "0.18.0"
 fast_image_resize = "0.9.3"
 icns = "0.3.1"
 ico = "0.1.0"

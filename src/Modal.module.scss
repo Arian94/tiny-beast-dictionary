@@ -75,10 +75,19 @@
                     background-color: rgba(34, 85, 102, 0.3);
                 }
 
-                button {
-                    width: 30px;
+                .download {
+                    display: flex;
                     height: 100%;
+                    align-items: center;
+
+                    button {
+                        background-repeat: no-repeat;
+                        background-position: center;
+                        width: 30px;
+                        height: 100%;
+                    }
                 }
+
             }
         }
     }

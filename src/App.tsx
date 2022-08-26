@@ -4,18 +4,23 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { appWindow } from '@tauri-apps/api/window';
 import { createRef, MutableRefObject, useEffect, useRef, useState } from 'react';
 import styles from './App.module.scss';
-import { onlineDictionaries } from './countries';
+import { offlineDictionaries, onlineDictionaries } from './countries';
 import { Modal } from './Modal';
 
 type CountriesKeys = keyof typeof onlineDictionaries;
 type CountriesValues = typeof onlineDictionaries[CountriesKeys];
+export type OfflineDict = keyof typeof offlineDictionaries;
+export type OfflineDictsList = { [key in OfflineDict]: { percentage: number; volume: string } };
 type SavedConfig = {
-  activeTab: 'online' | 'offlie';
+  activeTab: 'online' | 'offline';
   from: CountriesValues | 'auto';
   to: CountriesValues;
-  x: string;
-  y: string
+  selectedOfflineDict?: OfflineDict;
+  downloadedDicts?: OfflineDict[];
+  x: number;
+  y: number;
 }
+export type DownloadStatus = { name: OfflineDict; percentage: number };
 
 function App() {
   const [inputVal, setInputVal] = useState("");
@@ -29,7 +34,20 @@ function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const inputRef = createRef<HTMLInputElement>();
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedOfflineDict, setSelectedOfflineDict] = useState<OfflineDict>();
+  const [downloadedDicts, setDownloadedDicts] = useState<OfflineDict[]>([]);
   const isOverlappingReqEmitted = useRef(false);
+  const [offlineDictsList, setOfflineDictsList] = useState<OfflineDictsList>(
+    {
+      Arabic: { percentage: -1, volume: 'xxx' },
+      English: { percentage: -1, volume: 'xxx' },
+      French: { percentage: -1, volume: 'xxx' },
+      German: { percentage: -1, volume: 'xxx' },
+      Italian: { percentage: -1, volume: 'xxx' },
+      Persian: { percentage: -1, volume: 'xxx' },
+      Spanish: { percentage: -1, volume: 'xxx' },
+    }
+  );
   let clipboardBuffer: string | null;
   let isSpeaking = false;
 
@@ -54,10 +72,12 @@ function App() {
   useEffect(() => {
     emit('front_is_up');
 
-    once<SavedConfig>('saved_config', ({ payload: { activeTab, from, to } }) => {
+    once<SavedConfig>('saved_config', ({ payload: { activeTab, from, to, selectedOfflineDict, downloadedDicts } }) => {
       activeTab && setActiveTab(activeTab as 'online' | 'offline')
       from && setFrom(from as CountriesValues)
       to && setTo(to as CountriesValues)
+      selectedOfflineDict && setSelectedOfflineDict(selectedOfflineDict)
+      downloadedDicts?.length && setDownloadedDicts(downloadedDicts)
     })
 
     const emitNewConfig = async () => {
@@ -67,9 +87,11 @@ function App() {
         activeTab: activeTabRef.current,
         from: fromRef.current,
         to: toRef.current,
+        selectedOfflineDict,
+        downloadedDicts,
         x,
         y
-      });
+      } as SavedConfig);
     }
 
     appWindow.onCloseRequested(e => {
@@ -94,9 +116,28 @@ function App() {
     // run readText once to store/read clipboard content which may exist before opening the app. 
     readText().then(clip => readClipboard(clip))
 
-    listen<FocusEvent>('tauri://focus',
+    const focusListener = listen<FocusEvent>('tauri://focus',
       () => readText().then(clip => readClipboard(clip))
-    )
+    );
+
+    const downloadingListener = listen<DownloadStatus>('downloading', (msg) => {
+      offlineDictsList[msg.payload.name].percentage = msg.payload.percentage;
+      setOfflineDictsList({ ...offlineDictsList });
+    })
+
+    const downloadListener = listen<DownloadStatus>('download_finished', ({ payload: { name } }) => {
+      downloadedDicts.push(name);
+      setDownloadedDicts(downloadedDicts.slice());
+      offlineDictsList[name].percentage = 100;
+      setOfflineDictsList({ ...offlineDictsList });
+      // console.log('download for', name, 'finished');
+    });
+
+    return () => {
+      focusListener.then(f => f());
+      downloadListener.then(d => d());
+      downloadingListener.then(d => d());
+    }
   }, []);
 
   useEffect(() => {
@@ -131,6 +172,12 @@ function App() {
     return ops
   }
 
+  const offlineLangOptions = () => {
+    return downloadedDicts.map(d => {
+      return <option key={d} value={d.slice(0, 2)}>{d}</option>
+    })
+  }
+
   const swapLang = () => {
     setFrom(to)
     setTo(from === 'auto' ? to === 'en' ? 'fr' : 'en' : from)
@@ -141,7 +188,7 @@ function App() {
   const speak = (word: string, lang: CountriesValues | 'auto') => {
     if (isSpeaking) return;
     isSpeaking = true;
-    invoke<string>('speak', { word, lang }).then(() => isSpeaking = false);
+    invoke<void>('speak', { word, lang }).then(() => isSpeaking = false);
   }
 
   const invokeBackend = async () => {
@@ -171,7 +218,13 @@ function App() {
 
   return (
     <div className={styles.App}>
-      {isOpen && <Modal setIsOpen={setIsOpen} />}
+      {isOpen && <Modal
+        setIsOpen={setIsOpen}
+        downloadedDicts={downloadedDicts}
+        setDownloadedDicts={setDownloadedDicts}
+        offlineDictsList={offlineDictsList}
+        setOfflineDictsList={setOfflineDictsList}
+      />}
       <div className={styles.switches}>
         {activeTab === "online" ?
           <div className={styles.languageOptions}>
@@ -201,9 +254,10 @@ function App() {
             <button title="Add or Remove" onClick={() => setIsOpen(true)}></button>
             <div className={styles.offlineDict}>
               <span>Select an offline dictionary:</span>
-              <select>
+              <select value={downloadedDicts?.[0]}>
                 <>
-                  <option value="fr">French</option>
+                  {offlineLangOptions()}
+                  {/* <option value="fr">French</option> */}
                 </>
               </select>
             </div>

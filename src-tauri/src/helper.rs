@@ -1,17 +1,81 @@
+use futures_util::StreamExt;
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 use serde_json::Value;
 use std::error::Error;
+use std::str::from_utf8;
+use std::sync::{mpsc, Arc, Mutex};
 use std::{collections::HashMap, fs::File, io::BufReader};
+use tauri::async_runtime::block_on;
 
 static JSON_DIR: &str = "json_dictionaries";
-static RAW_DIR: &str = "raw_dictionaries";
 pub static SETTINGS_FILENAME: &str = "settings/settings.json";
 
+struct OfflineDict<'a> {
+    url: &'a str,
+    length: u64,
+}
+
+#[derive(Serialize, Clone)]
+struct DictDowlonadStatus<'a> {
+    name: &'a str,
+    percentage: u8,
+}
+
 lazy_static! {
-    static ref SHEET_NAME: &'static str = "EnglishPersianWordDatabase";
-    static ref EN_FA_XLSX_PATH: String = format!("{}/dictionary.xlsx", RAW_DIR);
     static ref EN_FA_JSON_PATH: String = format!("{}/en-fa.json", JSON_DIR);
     pub static ref EN_FA_DICT: HashMap<String, String> = read_json_file(&EN_FA_JSON_PATH).unwrap();
+    static ref OFFLINE_DICTS: HashMap<&'static str, OfflineDict<'static>> = HashMap::from([
+        (
+            "english",
+            OfflineDict {
+                url: "https://kaikki.org/dictionary/French/by-pos/name/kaikki.org-dictionary-French-by-pos-name.json",
+                length: 24
+            }
+        ),
+        (
+            "french",
+            OfflineDict {
+                url: "https://kaikki.org/dictionary/French/by-pos/pron/kaikki.org-dictionary-French-by-pos-pron.json",
+                length: 7 * 1024 * 1024
+            }
+        ),
+        (
+            "german",
+            OfflineDict {
+                url: "dsa",
+                length: 24
+            }
+        ),
+        (
+            "spanish",
+            OfflineDict {
+                url: "dsa",
+                length: 24
+            }
+        ),
+        (
+            "italian",
+            OfflineDict {
+                url: "dsa",
+                length: 24
+            }
+        ),
+        (
+            "persian",
+            OfflineDict {
+                url: "dsa",
+                length: 24
+            }
+        ),
+        (
+            "arabic",
+            OfflineDict {
+                url: "dsa",
+                length: 24
+            }
+        )
+    ]);
 }
 
 pub fn find_absolute_path(path: &str) -> String {
@@ -52,19 +116,18 @@ pub fn write_payload(filename: &str, payload: &str) -> Result<(), String> {
     }
 }
 
-async fn rectify_incorrect_json(url: &str) -> Result<Value, reqwest::Error> {
-    // todo get url from filename using a hashmap
-    let mut file = reqwest::get(url).await?.text().await?;
+fn rectify_incorrect_string(mut file: String) -> Value {
     file.pop();
     file.insert(0, '[');
     file.push(']');
     let file = file.replace("}\n", "},");
     let file_value = serde_json::from_str::<Value>(&file).unwrap();
-    Ok(file_value)
+    file_value
 }
 
-fn create_write_file(filename: &str, file_value: Value) -> Result<(), String> {
-    match File::create(filename) {
+fn create_write_json_file(filename: &str, file_value: Value) -> Result<(), String> {
+    let name = format!("{filename}.json");
+    match File::create(name) {
         Ok(file) => {
             match serde_json::to_writer(file, &file_value) {
                 Ok(it) => return Ok(it),
@@ -75,90 +138,113 @@ fn create_write_file(filename: &str, file_value: Value) -> Result<(), String> {
     };
 }
 
-async fn write_rectified_json(filename: &str, url: &str) -> Result<(), String> {
-    match rectify_incorrect_json(url).await {
-        Ok(val) => create_write_file(filename, val),
-        Err(err) => Err(err.to_string()),
+pub async fn download_dict(name: &str, window: tauri::Window) -> Result<(), String> {
+    let lower_name = name.to_lowercase();
+    let lower_name_str = lower_name.as_str();
+    let value = OFFLINE_DICTS.get(lower_name_str).unwrap();
+    let res = reqwest::get(value.url)
+        .await
+        .or(Err("connection error".to_string()))?;
+    let total_size = res.content_length().unwrap_or(value.length);
+    let incorrect_vec_arc = Arc::new(Mutex::new(Vec::new()));
+    let mut stream = res.bytes_stream();
+    let (tx, rx) = mpsc::channel::<u8>();
+    let arc_clone = Arc::clone(&incorrect_vec_arc);
+
+    std::thread::spawn(move || -> Result<(), String> {
+        let mut downloaded: u64 = 0;
+        'blocking_while: while let Some(item) = block_on(stream.next()) {
+            let chunk = item.or(Err(format!("error while downloading file")))?;
+            let mut incorrect_vec = arc_clone.lock().unwrap();
+            incorrect_vec.push(
+                from_utf8(&chunk)
+                    .or(Err(format!("invalid utf8 char")))?
+                    .to_string(),
+            );
+            let len = chunk.len() as u64;
+            let new_size = (downloaded + len) * 100 / total_size;
+            downloaded += len;
+            tx.send(new_size as u8)
+                .or(Err(format!("error in sending message")))?;
+            if new_size == 100 {
+                break 'blocking_while;
+            }
+        }
+        Ok(())
+    });
+
+    let now = std::time::Instant::now();
+    let mut dur = std::time::Duration::new(2, 0);
+    let emit_dl_status = |p: u8, event: &str, print_msg: &str| -> Result<(), String> {
+        eprintln!("{print_msg} {p}%");
+        window
+            .emit(
+                event,
+                DictDowlonadStatus {
+                    name,
+                    percentage: p,
+                },
+            )
+            .or(Err(format!("error in emitting payload")))?;
+        Ok(())
+    };
+
+    'state_loop: loop {
+        match rx.recv() {
+            Ok(percentage) => {
+                if dur > now.elapsed() {
+                    continue;
+                }
+                emit_dl_status(percentage, "downloading", "downloading").unwrap();
+                dur = std::time::Duration::new(dur.as_secs() + 2, 0);
+            }
+            Err(e) => {
+                eprintln!("error: {e}");
+                if !e.to_string().contains("closed channel") { return Err(format!("something went wrong")); }
+                emit_dl_status(99, "downloading", "wait").unwrap();
+                break 'state_loop;
+            }
+        }
     }
+
+    let incorrect_vec = &*incorrect_vec_arc.lock().unwrap();
+    let incorrect_string = incorrect_vec.join("");
+    let correct_val = rectify_incorrect_string(incorrect_string);
+    create_write_json_file(
+        &find_absolute_path(&format!("{JSON_DIR}/{name}")),
+        correct_val,
+    )?;
+    emit_dl_status(100, "download_finished", "download finished").unwrap();
+
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::helper::write_rectified_json;
-    use super::{EN_FA_JSON_PATH, EN_FA_XLSX_PATH, SHEET_NAME};
-    use calamine::{open_workbook, Reader, Xlsx};
+    use super::download_dict;
     use fast_image_resize as fr;
     use icns::{IconFamily, Image};
     use image::codecs::png::PngEncoder;
     use image::io::Reader as ImageReader;
     use image::{ColorType, ImageEncoder};
     use std::{
-        collections::HashMap,
         fs::File,
         io::{BufReader, BufWriter},
         num::NonZeroU32,
     };
     use tauri::async_runtime::block_on;
-
-    fn read_en_fa_excel_dictionary_file(path: &str, sheet_name: &str) -> Result<(), String> {
-        let mut excel: Xlsx<_> = open_workbook(path).unwrap();
-
-        if let Some(Err(error)) = excel.worksheet_range(sheet_name) {
-            return Err(error.to_string());
-        }
-
-        if excel.worksheet_range(sheet_name).is_none() {
-            return Err(String::from("something went wrong about the file."));
-        }
-
-        let range = excel.worksheet_range(sheet_name).unwrap().unwrap();
-        let mut dict = HashMap::new();
-        let mut value_buffer = String::new();
-        let mut previous_key = range.get((0, 0)).unwrap().get_string().unwrap();
-        let mut current_key = "";
-
-        range.rows().for_each(|row| {
-            current_key = row[0].get_string().unwrap();
-            let current_value = row[1].get_string().unwrap().to_string();
-
-            if previous_key == current_key {
-                let val = format!("، {current_value}");
-                value_buffer.push_str(&val);
-            } else {
-                dict.insert(previous_key.to_string(), value_buffer.clone());
-                value_buffer = current_value;
-                previous_key = current_key;
-            }
-        });
-
-        dict.insert(current_key.to_string(), value_buffer);
-
-        match File::create(&*EN_FA_JSON_PATH) {
-            Ok(file) => {
-                match serde_json::to_writer(file, &dict) {
-                    Ok(it) => return Ok(it),
-                    Err(err) => return Err(err.to_string()),
-                };
-            }
-            Err(err) => return Err(err.to_string()),
-        };
-    }
+    use tauri::Manager;
 
     #[test]
-    fn read_raw_excel_write_to_json() {
-        assert_eq!(
-            read_en_fa_excel_dictionary_file(&EN_FA_XLSX_PATH, &SHEET_NAME),
-            Ok(())
-        );
-    }
-
-    #[test]
-    fn read_kaikki_json() {
-        let g = block_on(write_rectified_json(
-            "src/corrected-french.json",
-            "https://kaikki.org/dictionary/French/by-pos/particle/kaikki.org-dictionary-French-by-pos-particle-xMQliI",
-        ));
-        assert_eq!(g, Ok(()));
+    fn download_dict_works() {
+        let g = tauri::Builder::default()
+            .any_thread()
+            .build(tauri::generate_context!())
+            .unwrap()
+            .get_window("main")
+            .unwrap();
+        let d = block_on(download_dict("french", g)).unwrap();
+        assert_eq!((), d);
     }
 
     #[test]
