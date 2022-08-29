@@ -2,37 +2,46 @@
 import { invoke } from "@tauri-apps/api";
 import { appWindow } from '@tauri-apps/api/window';
 import { useEffect } from "react";
-import { OfflineDict, OfflineDictsList } from "./App";
+import { OfflineDictAbbrs, OfflineDictsList } from "./App";
 import styles from "./Modal.module.scss";
 
 export const Modal: React.FC<{
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  downloadedDicts: OfflineDict[];
-  setDownloadedDicts: React.Dispatch<React.SetStateAction<(OfflineDict)[]>>;
+  downloadedDicts: OfflineDictAbbrs[];
+  setDownloadedDicts: React.Dispatch<React.SetStateAction<(OfflineDictAbbrs)[]>>;
   offlineDictsList: OfflineDictsList;
   setOfflineDictsList: React.Dispatch<React.SetStateAction<OfflineDictsList>>;
+  setSelectedOfflineDict: React.Dispatch<React.SetStateAction<OfflineDictAbbrs | undefined>>;
 }>
-  = ({ setIsOpen, downloadedDicts, setDownloadedDicts, offlineDictsList, setOfflineDictsList }) => {
+  = ({ setIsOpen, downloadedDicts, setDownloadedDicts, offlineDictsList, setOfflineDictsList, setSelectedOfflineDict }) => {
     useEffect(() => {
       downloadedDicts.forEach(dd => offlineDictsList[dd].percentage = 100);
       setOfflineDictsList({ ...offlineDictsList });
     }, []);
 
-    const downloadCancelDelete = (name: OfflineDict) => {
-      offlineDictsList[name].percentage = 0;
+    const downloadCancelDelete = (abbr: OfflineDictAbbrs) => {
+      offlineDictsList[abbr].percentage = 0;
       setOfflineDictsList({ ...offlineDictsList });
-      console.log('download for', name, 'started');
-      invoke<string>('download_dict', { name, appWindow }).then((possibleErr) => console.log(possibleErr));
+      console.log('download for', abbr, 'started');
+      invoke<string>('download_dict', { abbr, appWindow }).then((possibleErr) => {
+        console.log(possibleErr)
+        if (possibleErr) return;
+        downloadedDicts.push(abbr);
+        setDownloadedDicts(downloadedDicts.slice());
+        offlineDictsList[abbr].percentage = 100;
+        setOfflineDictsList({ ...offlineDictsList });
+        setSelectedOfflineDict(abbr);
+      });
     }
 
     const langOptions = () => {
-      return (Object.keys(offlineDictsList) as OfflineDict[])
-        .map(k => {
-          const dict = offlineDictsList[k];
+      return (Object.keys(offlineDictsList) as OfflineDictAbbrs[])
+        .map(abbr => {
+          const dict = offlineDictsList[abbr];
           const dlStatusIcon = dict.percentage === -1 ? '/src/assets/download.svg' : dict.percentage === 100 ? '/src/assets/delete.svg' : '/src/assets/cancel.svg';
           return (
-            <div key={k} className={styles.dict}>
-              <span>{k} ({dict.volume} MB)</span>
+            <div key={abbr} className={styles.dict}>
+              <span>{dict.name} ({dict.volume} MB)</span>
               <div className={styles.download}>
                 {dict.percentage !== -1 && dict.percentage !== 100 ? <span>{dict.percentage}%</span> : ''}
                 <button
@@ -40,7 +49,7 @@ export const Modal: React.FC<{
                     backgroundImage: `url(${dlStatusIcon})`,
                     backgroundSize: true ? '20px' : '25px'
                   }}
-                  onClick={() => downloadCancelDelete(k)}
+                  onClick={() => downloadCancelDelete(abbr)}
                 ></button>
               </div>
             </div>

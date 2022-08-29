@@ -7,45 +7,50 @@ import styles from './App.module.scss';
 import { offlineDictionaries, onlineDictionaries } from './countries';
 import { Modal } from './Modal';
 
-type CountriesKeys = keyof typeof onlineDictionaries;
-type CountriesValues = typeof onlineDictionaries[CountriesKeys];
-export type OfflineDict = keyof typeof offlineDictionaries;
-export type OfflineDictsList = { [key in OfflineDict]: { percentage: number; volume: string } };
+//todo appear icons in modal
+
+type CountriesNames = keyof typeof onlineDictionaries;
+type CountriesAbbrs = typeof onlineDictionaries[CountriesNames];
+export type OfflineDictNames = keyof typeof offlineDictionaries;
+export type OfflineDictAbbrs = typeof offlineDictionaries[OfflineDictNames];
+export type OfflineDictsList = { [key in OfflineDictAbbrs]: { percentage: number; volume: string; name: OfflineDictNames } };
 type SavedConfig = {
   activeTab: 'online' | 'offline';
-  from: CountriesValues | 'auto';
-  to: CountriesValues;
-  selectedOfflineDict?: OfflineDict;
-  downloadedDicts?: OfflineDict[];
+  from: CountriesAbbrs | 'auto';
+  to: CountriesAbbrs;
+  selectedOfflineDict?: OfflineDictAbbrs;
+  downloadedDicts?: OfflineDictAbbrs[];
   x: number;
   y: number;
 }
-export type DownloadStatus = { name: OfflineDict; percentage: number };
+export type DownloadStatus = { name: OfflineDictAbbrs; percentage: number };
 
 function App() {
   const [inputVal, setInputVal] = useState("");
   const [activeTab, setActiveTab] = useState<'online' | 'offline'>('online');
   const activeTabRef = useRef<'online' | 'offline'>('online');
-  const fromRef = useRef<CountriesValues | 'auto'>('auto');
-  const [from, setFrom] = useState<CountriesValues | 'auto'>('auto');
-  const toRef = useRef<CountriesValues>('en');
-  const [to, setTo] = useState<CountriesValues>('en');
+  const fromRef = useRef<CountriesAbbrs | 'auto'>('auto');
+  const [from, setFrom] = useState<CountriesAbbrs | 'auto'>('auto');
+  const toRef = useRef<CountriesAbbrs>('en');
+  const [to, setTo] = useState<CountriesAbbrs>('en');
   const translationRef = useRef('');
   const [loading, setLoading] = useState<boolean>(false);
   const inputRef = createRef<HTMLInputElement>();
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedOfflineDict, setSelectedOfflineDict] = useState<OfflineDict>();
-  const [downloadedDicts, setDownloadedDicts] = useState<OfflineDict[]>([]);
+  const [selectedOfflineDict, setSelectedOfflineDict] = useState<OfflineDictAbbrs>();
+  const [downloadedDicts, setDownloadedDicts] = useState<OfflineDictAbbrs[]>([]);
+  const selectedOfflineDictRef = useRef<OfflineDictAbbrs>();
+  const downloadedDictsRef = useRef<OfflineDictAbbrs[]>([]);
   const isOverlappingReqEmitted = useRef(false);
   const [offlineDictsList, setOfflineDictsList] = useState<OfflineDictsList>(
     {
-      Arabic: { percentage: -1, volume: 'xxx' },
-      English: { percentage: -1, volume: 'xxx' },
-      French: { percentage: -1, volume: 'xxx' },
-      German: { percentage: -1, volume: 'xxx' },
-      Italian: { percentage: -1, volume: 'xxx' },
-      Persian: { percentage: -1, volume: 'xxx' },
-      Spanish: { percentage: -1, volume: 'xxx' },
+      ar: { percentage: -1, volume: 'xxx', name: "Arabic" },
+      en: { percentage: -1, volume: 'xxx', name: "English" },
+      fr: { percentage: -1, volume: 'xxx', name: "French" },
+      de: { percentage: -1, volume: 'xxx', name: "German" },
+      it: { percentage: -1, volume: 'xxx', name: "Italian" },
+      fa: { percentage: -1, volume: 'xxx', name: "Persian" },
+      es: { percentage: -1, volume: 'xxx', name: "Spanish" },
     }
   );
   let clipboardBuffer: string | null;
@@ -64,6 +69,7 @@ function App() {
 
   function inputSpeakHandler(this: HTMLInputElement, e: KeyboardEvent) {
     if (e.key !== 'Enter') return;
+    if (fromRef.current === 'fa') return;
     if (e.ctrlKey) return;
     const { value } = this;
     speak(value, fromRef.current);
@@ -96,6 +102,16 @@ function App() {
 
     appWindow.onCloseRequested(e => {
       e.preventDefault();
+      console.log(
+        {
+          activeTab: activeTabRef.current,
+          from: fromRef.current,
+          to: toRef.current,
+          selectedOfflineDict: selectedOfflineDictRef.current,
+          downloadedDicts: downloadedDictsRef.current,
+        }
+      );
+
       emitNewConfig();
     });
 
@@ -123,26 +139,32 @@ function App() {
     const downloadingListener = listen<DownloadStatus>('downloading', (msg) => {
       offlineDictsList[msg.payload.name].percentage = msg.payload.percentage;
       setOfflineDictsList({ ...offlineDictsList });
-    })
-
-    const downloadListener = listen<DownloadStatus>('download_finished', ({ payload: { name } }) => {
-      downloadedDicts.push(name);
-      setDownloadedDicts(downloadedDicts.slice());
-      offlineDictsList[name].percentage = 100;
-      setOfflineDictsList({ ...offlineDictsList });
-      // console.log('download for', name, 'finished');
     });
+
+    console.log('chi shod', selectedOfflineDict);
+
 
     return () => {
       focusListener.then(f => f());
-      downloadListener.then(d => d());
       downloadingListener.then(d => d());
     }
   }, []);
 
   useEffect(() => {
     activeTabRef.current = activeTab;
-  }, [activeTab])
+  }, [activeTab]);
+
+  useEffect(() => {
+    selectedOfflineDictRef.current = selectedOfflineDict;
+    console.log('selectedOfflineDict', selectedOfflineDict);
+    
+  }, [selectedOfflineDict]);
+
+  useEffect(() => {
+    downloadedDictsRef.current = downloadedDicts;
+    console.log('downloadedDicts', downloadedDicts);
+
+  }, [downloadedDicts]);
 
   useEffect(() => {
     if (loading)
@@ -155,16 +177,16 @@ function App() {
   useEffect(() => {
     fromRef.current = from;
     setTimeout(() => handler(), 0);
-  }, [from])
+  }, [from]);
 
   useEffect(() => {
     toRef.current = to;
     setTimeout(() => handler(), 0);
-  }, [to])
+  }, [to]);
 
   const langOptions = (option: 'from' | 'to') => {
     const ops: JSX.IntrinsicElements['option'][] = [];
-    (Object.keys(onlineDictionaries) as CountriesKeys[])
+    (Object.keys(onlineDictionaries) as CountriesNames[])
       .filter(country => option === 'from' ? to !== onlineDictionaries[country] : from !== onlineDictionaries[country])
       .map(country => {
         ops.push(<option key={option + country} value={onlineDictionaries[country]}>{country}</option>)
@@ -174,7 +196,7 @@ function App() {
 
   const offlineLangOptions = () => {
     return downloadedDicts.map(d => {
-      return <option key={d} value={d.slice(0, 2)}>{d}</option>
+      return <option key={d} value={d}>{offlineDictsList[d].name}</option>
     })
   }
 
@@ -185,7 +207,7 @@ function App() {
     setTimeout(() => handler(), 0);
   }
 
-  const speak = (word: string, lang: CountriesValues | 'auto') => {
+  const speak = (word: string, lang: CountriesAbbrs | 'auto') => {
     if (isSpeaking) return;
     isSpeaking = true;
     invoke<void>('speak', { word, lang }).then(() => isSpeaking = false);
@@ -194,12 +216,21 @@ function App() {
   const invokeBackend = async () => {
     let translationVal = '';
     try {
-      if (activeTab === 'online')
-        translationVal = await invoke<string>('google_translate', { from: fromRef.current, to: toRef.current, word: inputVal });
-      else
-        translationVal = await invoke<string>('find', { word: inputVal });
+      if (activeTab === 'online') {
+        translationVal = await invoke<string>('online_translate', { from: fromRef.current, to: toRef.current, word: inputVal });
+      } else {
+        if (selectedOfflineDict) {
+          const valObj = await invoke<any>('offline_translate', { word: inputVal, lang: selectedOfflineDict });
+          console.log('valobj', valObj);
+          
+          translationVal = valObj.senses[0].glosses[0];
+        } else {
+          translationVal = '';
+        }
+      }
     } catch (er: any) {
-      translationVal = er === 'not found' ? er : 'connection error';
+      translationVal = er;
+      // translationVal = er === 'not found' ? er : 'connection error';
     }
 
     if (isOverlappingReqEmitted.current)
@@ -224,13 +255,14 @@ function App() {
         setDownloadedDicts={setDownloadedDicts}
         offlineDictsList={offlineDictsList}
         setOfflineDictsList={setOfflineDictsList}
+        setSelectedOfflineDict={setSelectedOfflineDict}
       />}
       <div className={styles.switches}>
         {activeTab === "online" ?
           <div className={styles.languageOptions}>
             <div className={styles.from}>
               <span>from</span>
-              <select key="from" value={from} onChange={event => setFrom(event.target.value as CountriesValues)}>
+              <select key="from" value={from} onChange={event => setFrom(event.target.value as CountriesAbbrs)}>
                 <option value="auto">Detect</option>
                 <>
                   {langOptions('from')}
@@ -242,7 +274,7 @@ function App() {
 
             <div className={styles.to}>
               <span>to</span>
-              <select key="to" value={to} onChange={event => setTo(event.target.value as CountriesValues)}>
+              <select key="to" value={to} onChange={event => setTo(event.target.value as CountriesAbbrs)}>
                 <>
                   {langOptions('to')}
                 </>
@@ -254,10 +286,13 @@ function App() {
             <button title="Add or Remove" onClick={() => setIsOpen(true)}></button>
             <div className={styles.offlineDict}>
               <span>Select an offline dictionary:</span>
-              <select value={downloadedDicts?.[0]}>
+              <select value={selectedOfflineDict} onChange={e => {
+                console.log('i am changed');
+
+                setSelectedOfflineDict(e.target.value as OfflineDictAbbrs)
+              }}>
                 <>
                   {offlineLangOptions()}
-                  {/* <option value="fr">French</option> */}
                 </>
               </select>
             </div>

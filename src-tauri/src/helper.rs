@@ -1,7 +1,9 @@
+use ahash::RandomState;
 use futures_util::StreamExt;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
+use tauri::regex::Regex;
 use std::error::Error;
 use std::str::from_utf8;
 use std::sync::{mpsc, Arc, Mutex};
@@ -11,9 +13,10 @@ use tauri::async_runtime::block_on;
 static JSON_DIR: &str = "json_dictionaries";
 pub static SETTINGS_FILENAME: &str = "settings/settings.json";
 
-struct OfflineDict<'a> {
+pub struct OfflineDict<'a> {
     url: &'a str,
     length: u64,
+    name: &'a str,
 }
 
 #[derive(Serialize, Clone)]
@@ -23,56 +26,70 @@ struct DictDowlonadStatus<'a> {
 }
 
 lazy_static! {
-    static ref EN_FA_JSON_PATH: String = format!("{}/en-fa.json", JSON_DIR);
-    pub static ref EN_FA_DICT: HashMap<String, String> = read_json_file(&EN_FA_JSON_PATH).unwrap();
-    static ref OFFLINE_DICTS: HashMap<&'static str, OfflineDict<'static>> = HashMap::from([
+    static ref JSON_REGEX: Regex = Regex::new(r#"(?m).*"word": "([^"]+)", "lang".*"#).unwrap();
+    pub static ref EN_DICT: HashMap<String, Value, RandomState> = read_json_file(&format!("{JSON_DIR}/en.json")).unwrap();
+    pub static ref FR_DICT: HashMap<String, Value, RandomState> = read_json_file(&format!("{JSON_DIR}/fr.json")).unwrap();
+    pub static ref DE_DICT: HashMap<String, Value, RandomState> = read_json_file(&format!("{JSON_DIR}/de.json")).unwrap();
+    pub static ref ES_DICT: HashMap<String, Value, RandomState> = read_json_file(&format!("{JSON_DIR}/es.json")).unwrap();
+    pub static ref IT_DICT: HashMap<String, Value, RandomState> = read_json_file(&format!("{JSON_DIR}/it.json")).unwrap();
+    pub static ref FA_DICT: HashMap<String, Value, RandomState> = read_json_file(&format!("{JSON_DIR}/fa.json")).unwrap();
+    pub static ref AR_DICT: HashMap<String, Value, RandomState> = read_json_file(&format!("{JSON_DIR}/ar.json")).unwrap();
+    pub static ref OFFLINE_DICTS: HashMap<&'static str, OfflineDict<'static>> = HashMap::from([
         (
-            "english",
+            "en",
             OfflineDict {
-                url: "https://kaikki.org/dictionary/French/by-pos/name/kaikki.org-dictionary-French-by-pos-name.json",
-                length: 24
+                // url: "https://kaikki.org/dictionary/French/by-pos/name/kaikki.org-dictionary-French-by-pos-name.json",
+                url: "https://kaikki.org/dictionary/French/by-pos/pron/kaikki.org-dictionary-French-by-pos-pron.json",
+                length: 24,
+                name: "English"
             }
         ),
         (
-            "french",
+            "fr",
             OfflineDict {
                 url: "https://kaikki.org/dictionary/French/by-pos/pron/kaikki.org-dictionary-French-by-pos-pron.json",
-                length: 7 * 1024 * 1024
+                length: 7 * 1024 * 1024,
+                name: "French"
             }
         ),
         (
-            "german",
+            "de",
             OfflineDict {
                 url: "dsa",
-                length: 24
+                length: 24,
+                name: "German"
             }
         ),
         (
-            "spanish",
+            "es",
             OfflineDict {
                 url: "dsa",
-                length: 24
+                length: 24,
+                name: "Spanish"
             }
         ),
         (
-            "italian",
+            "it",
             OfflineDict {
                 url: "dsa",
-                length: 24
+                length: 24,
+                name: "Italian"
             }
         ),
         (
-            "persian",
+            "fa",
             OfflineDict {
-                url: "dsa",
-                length: 24
+                url: "https://kaikki.org/dictionary/Persian/by-pos/particle/kaikki.org-dictionary-Persian-by-pos-particl-ZyLl7P",
+                length: 24,
+                name: "Persian"
             }
         ),
         (
-            "arabic",
+            "ar",
             OfflineDict {
                 url: "dsa",
-                length: 24
+                length: 24,
+                name: "Arabic"
             }
         )
     ]);
@@ -116,13 +133,25 @@ pub fn write_payload(filename: &str, payload: &str) -> Result<(), String> {
     }
 }
 
-fn rectify_incorrect_string(mut file: String) -> Value {
-    file.pop();
-    file.insert(0, '[');
-    file.push(']');
-    let file = file.replace("}\n", "},");
-    let file_value = serde_json::from_str::<Value>(&file).unwrap();
-    file_value
+fn rectify_incorrect_string(incorrect_string: String, abbr: &str) -> Value {
+    let mut correct_val = String::new();
+    let name = OFFLINE_DICTS.get(&abbr).unwrap().name;
+
+    JSON_REGEX.captures_iter(&incorrect_string).for_each(|c| {
+        let val = &c[0];
+        let k = &c[1];
+        let to_be_removed = format!("\"word\": \"{k}\", \"lang\": \"{name}\", \"lang_code\": \"{abbr}\",");
+        let mut removed_val = val.replace(&to_be_removed, "");
+        removed_val.push(',');
+        let res = format!("\"{k}\":{removed_val}");
+        correct_val.push_str(&res);
+    });
+
+    correct_val.pop();   // in the loop, an additional ',' will be pushed which must be removed to make it a valid json.
+    correct_val.insert(0, '{');
+    correct_val.push('}');
+    let correct_val = serde_json::from_str::<Value>(&correct_val).unwrap();
+    correct_val
 }
 
 fn create_write_json_file(filename: &str, file_value: Value) -> Result<(), String> {
@@ -138,29 +167,24 @@ fn create_write_json_file(filename: &str, file_value: Value) -> Result<(), Strin
     };
 }
 
-pub async fn download_dict(name: &str, window: tauri::Window) -> Result<(), String> {
-    let lower_name = name.to_lowercase();
-    let lower_name_str = lower_name.as_str();
-    let value = OFFLINE_DICTS.get(lower_name_str).unwrap();
+pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), String> {
+    let value = OFFLINE_DICTS.get(&abbr).unwrap();
     let res = reqwest::get(value.url)
         .await
         .or(Err("connection error".to_string()))?;
     let total_size = res.content_length().unwrap_or(value.length);
-    let incorrect_vec_arc = Arc::new(Mutex::new(Vec::new()));
+    let incorrect_string_arc = Arc::new(Mutex::new(String::new()));
     let mut stream = res.bytes_stream();
     let (tx, rx) = mpsc::channel::<u8>();
-    let arc_clone = Arc::clone(&incorrect_vec_arc);
+    let arc_clone = Arc::clone(&incorrect_string_arc);
 
     std::thread::spawn(move || -> Result<(), String> {
         let mut downloaded: u64 = 0;
         'blocking_while: while let Some(item) = block_on(stream.next()) {
             let chunk = item.or(Err(format!("error while downloading file")))?;
-            let mut incorrect_vec = arc_clone.lock().unwrap();
-            incorrect_vec.push(
-                from_utf8(&chunk)
-                    .or(Err(format!("invalid utf8 char")))?
-                    .to_string(),
-            );
+            let mut incorrect_string = arc_clone.lock().unwrap();
+            incorrect_string.push_str(from_utf8(&chunk)
+            .or(Err(format!("invalid utf8 char")))?);
             let len = chunk.len() as u64;
             let new_size = (downloaded + len) * 100 / total_size;
             downloaded += len;
@@ -172,16 +196,15 @@ pub async fn download_dict(name: &str, window: tauri::Window) -> Result<(), Stri
         }
         Ok(())
     });
-
     let now = std::time::Instant::now();
     let mut dur = std::time::Duration::new(2, 0);
-    let emit_dl_status = |p: u8, event: &str, print_msg: &str| -> Result<(), String> {
+    let emit_dl_status = |p: u8, print_msg: &str| -> Result<(), String> {
         eprintln!("{print_msg} {p}%");
         window
             .emit(
-                event,
+                "downloading",
                 DictDowlonadStatus {
-                    name,
+                    name: abbr,
                     percentage: p,
                 },
             )
@@ -195,27 +218,28 @@ pub async fn download_dict(name: &str, window: tauri::Window) -> Result<(), Stri
                 if dur > now.elapsed() {
                     continue;
                 }
-                emit_dl_status(percentage, "downloading", "downloading").unwrap();
+                emit_dl_status(percentage, "downloading").unwrap();
                 dur = std::time::Duration::new(dur.as_secs() + 2, 0);
             }
             Err(e) => {
                 eprintln!("error: {e}");
-                if !e.to_string().contains("closed channel") { return Err(format!("something went wrong")); }
-                emit_dl_status(99, "downloading", "wait").unwrap();
+                if !e.to_string().contains("closed channel") {
+                    return Err(format!("something went wrong"));
+                }
+                emit_dl_status(99, "wait").unwrap();
                 break 'state_loop;
             }
         }
     }
 
-    let incorrect_vec = &*incorrect_vec_arc.lock().unwrap();
-    let incorrect_string = incorrect_vec.join("");
-    let correct_val = rectify_incorrect_string(incorrect_string);
+    let incorrect_string = &*incorrect_string_arc.lock().unwrap();
+    let correct_val = rectify_incorrect_string(incorrect_string.to_string(), abbr);
+
     create_write_json_file(
-        &find_absolute_path(&format!("{JSON_DIR}/{name}")),
+        &find_absolute_path(&format!("{JSON_DIR}/{abbr}")),
         correct_val,
     )?;
-    emit_dl_status(100, "download_finished", "download finished").unwrap();
-
+    eprintln!("downloaded: {abbr}");
     Ok(())
 }
 
@@ -243,7 +267,7 @@ mod tests {
             .unwrap()
             .get_window("main")
             .unwrap();
-        let d = block_on(download_dict("french", g)).unwrap();
+        let d = block_on(download_dict("fr", g)).unwrap();
         assert_eq!((), d);
     }
 
