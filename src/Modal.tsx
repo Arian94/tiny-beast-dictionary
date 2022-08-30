@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { OfflineDictAbbrs, OfflineDictsList } from "./App";
 import styles from "./Modal.module.scss";
 
-const NOT_DOWNLOADED = -1;
+export const NOT_DOWNLOADED = -1;
 const WAIT_FOR_PROCESSING = 99;
 const DOWNLOADED = 100;
 
@@ -26,25 +26,35 @@ export const Modal: React.FC<{
 
     const downloadCancelDelete = (abbr: OfflineDictAbbrs) => {
       if (offlineDictsList[abbr].percentage === DOWNLOADED) {  //* to delete
-
+        invoke<void>('delete_dict', { abbr })
+          .then(() => {
+            offlineDictsList[abbr].percentage = NOT_DOWNLOADED;
+            const idx = downloadedDicts.findIndex(d => d === abbr);
+            downloadedDicts.splice(idx, 1);
+            setDownloadedDicts(downloadedDicts.slice());
+            !downloadedDicts.length && setSelectedOfflineDict(undefined);
+            downloadedDicts.length === 1 && setSelectedOfflineDict(downloadedDicts[0]);
+            setOfflineDictsList({ ...offlineDictsList });
+          })
+          .catch(e => console.error(e))
       } else if (offlineDictsList[abbr].percentage === NOT_DOWNLOADED) {  //* to download
         // console.log('download for', abbr, 'started');
         offlineDictsList[abbr].percentage = 0;
         setOfflineDictsList({ ...offlineDictsList });
         invoke<void>('download_dict', { abbr, appWindow })
           .then(() => {
+            !downloadedDicts.length && setSelectedOfflineDict(abbr);
             downloadedDicts.push(abbr);
             setDownloadedDicts(downloadedDicts.slice());
             offlineDictsList[abbr].percentage = DOWNLOADED;
-            setSelectedOfflineDict(abbr);
           })
           .catch(possibleErrOrCancelation => {
-            console.log(possibleErrOrCancelation)
+            console.error(possibleErrOrCancelation)
             offlineDictsList[abbr].percentage = NOT_DOWNLOADED;
           })
           .finally(() => setOfflineDictsList({ ...offlineDictsList }));
       } else {  //* to cancel
-        emit('cancel_download', abbr)
+        emit('cancel_download', abbr);
       }
     }
 

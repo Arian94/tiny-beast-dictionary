@@ -4,9 +4,11 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
 use std::error::Error;
+use std::path::PathBuf;
 use std::str::from_utf8;
 use std::sync::{mpsc, Arc, Mutex};
 use std::{collections::HashMap, fs::File, io::BufReader};
+use std::{fs, io};
 use tauri::async_runtime::block_on;
 use tauri::regex::Regex;
 
@@ -27,6 +29,7 @@ struct DictDowlonadStatus<'a> {
 
 lazy_static! {
     static ref JSON_REGEX: Regex = Regex::new(r#"(?m).*"word": "([^"]+)", "lang".*"#).unwrap();
+    pub static ref PATH_BUF: PathBuf = tauri::api::path::resource_dir(tauri::generate_context!().package_info(), &tauri::Env::default()).unwrap();
     pub static ref EN_DICT: HashMap<String, Value, RandomState> = read_json_file(&format!("{JSON_DIR}/en.json")).unwrap();
     pub static ref FR_DICT: HashMap<String, Value, RandomState> = read_json_file(&format!("{JSON_DIR}/fr.json")).unwrap();
     pub static ref DE_DICT: HashMap<String, Value, RandomState> = read_json_file(&format!("{JSON_DIR}/de.json")).unwrap();
@@ -38,8 +41,8 @@ lazy_static! {
         (
             "en",
             OfflineDict {
-                url: "https://kaikki.org/dictionary/French/by-pos/name/kaikki.org-dictionary-French-by-pos-name.json", // 7.3mb
-                // url: "https://kaikki.org/dictionary/French/by-pos/pron/kaikki.org-dictionary-French-by-pos-pron.json", // 300kb
+                // url: "https://kaikki.org/dictionary/French/by-pos/name/kaikki.org-dictionary-French-by-pos-name.json", // 7.3mb
+                url: "https://kaikki.org/dictionary/French/by-pos/pron/kaikki.org-dictionary-French-by-pos-pron.json", // 300kb
                 length: 24,
                 name: "English"
             }
@@ -47,8 +50,8 @@ lazy_static! {
         (
             "fr",
             OfflineDict {
-                // url: "https://kaikki.org/dictionary/French/by-pos/pron/kaikki.org-dictionary-French-by-pos-pron.json", // 300kb
-                url: "https://kaikki.org/dictionary/French/by-pos/adv/kaikki.org-dictionary-French-by-pos-adv.json", //4mb
+                url: "https://kaikki.org/dictionary/French/by-pos/pron/kaikki.org-dictionary-French-by-pos-pron.json", // 300kb
+                // url: "https://kaikki.org/dictionary/French/by-pos/adv/kaikki.org-dictionary-French-by-pos-adv.json", //4mb
                 length: 7 * 1024 * 1024,
                 name: "French"
             }
@@ -97,22 +100,25 @@ lazy_static! {
 }
 
 pub fn find_absolute_path(path: &str) -> String {
-    let env = tauri::Env::default();
-    let context = tauri::generate_context!();
-    let path_buf = tauri::api::path::resource_dir(context.package_info(), &env).unwrap();
-    let absolute_path = format!("{}/{}", path_buf.to_str().unwrap(), path);
+    let absolute_path = format!("{}/{}", PATH_BUF.to_str().unwrap(), path);
     absolute_path
 }
 
-pub fn read_json_file<T>(json_path: &str) -> Result<T, Box<dyn Error>>
+pub fn read_json_file<T>(path: &str) -> Result<T, Box<dyn Error>>
 where
     T: DeserializeOwned + std::fmt::Debug,
 {
-    let absolute_path = find_absolute_path(json_path);
+    let absolute_path = find_absolute_path(path);
     let file = File::open(absolute_path)?;
     let reader = BufReader::new(file);
     let json_file = serde_json::from_reader(reader)?;
     Ok(json_file)
+}
+
+pub fn delete_json_file(path: &str) -> io::Result<()> {
+    let absolute_path = find_absolute_path(&format!("{JSON_DIR}/{path}.json"));
+    fs::remove_file(absolute_path)?;
+    Ok(())
 }
 
 pub fn write_payload(filename: &str, payload: &str) -> Result<(), String> {

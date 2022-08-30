@@ -9,10 +9,12 @@ extern crate lazy_static;
 mod google_translate;
 mod helper;
 
-use std::collections::HashMap;
+use ahash::RandomState;
 use google_translate::Translator;
 use helper::*;
 use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::{Mutex, Arc};
 use tauri::{
     CustomMenuItem, Manager, PhysicalPosition, SystemTray, SystemTrayEvent, SystemTrayMenu,
     SystemTrayMenuItem,
@@ -34,7 +36,8 @@ fn main() {
             offline_translate,
             online_translate,
             speak,
-            download_dict
+            download_dict,
+            delete_dict,
         ])
         .system_tray(tray)
         .on_system_tray_event(move |app, event| match event {
@@ -69,32 +72,31 @@ fn main() {
         })
         .setup(|app| {
             let window = app.get_window("main").unwrap();
+            let win_arc = Arc::new(Mutex::new(window.to_owned()));
+            window.listen("new_config",  move |event| {
+                let payload = event.payload().unwrap();
+                write_payload(SETTINGS_FILENAME, payload)
+                    .is_ok()
+                    .then(|| win_arc.lock().unwrap().emit("config_saved", ""));
+            });
 
-            match read_json_file::<HashMap<String, serde_json::Value>>(SETTINGS_FILENAME) {
+            match read_json_file::<HashMap<String, serde_json::Value, RandomState>>(
+                SETTINGS_FILENAME,
+            ) {
                 Ok(config) => {
-                    window.set_position(PhysicalPosition {
-                        x: config["x"].as_f64().unwrap(),
-                        y: config["y"].as_f64().unwrap(),
-                    })?;
+                    if config.get("x").is_some() {
+                        window.set_position(PhysicalPosition {
+                            x: config["x"].as_f64().unwrap(),
+                            y: config["y"].as_f64().unwrap(),
+                        })?;
+                    }
                     window.to_owned().listen("front_is_up", move |_| {
-                        window.emit("saved_config", config.to_owned()).unwrap();
+                        window.emit("get_saved_config", config.to_owned()).unwrap();
                     });
                 }
                 Err(err) => println!("{err}"),
             };
             Ok(())
-        })
-        .on_window_event(|e| match e.event() {
-            tauri::WindowEvent::CloseRequested { .. } => {
-                let window = e.window().get_window("main").unwrap();
-                window.to_owned().once("new_config", move |event| {
-                    let payload = event.payload().unwrap();
-                    write_payload(SETTINGS_FILENAME, payload)
-                        .is_ok()
-                        .then(|| window.close().unwrap());
-                });
-            }
-            _ => {}
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -206,5 +208,13 @@ async fn speak<'a>(word: String, lang: String) {
 async fn download_dict(abbr: &str, app_window: tauri::Window) -> Result<(), String> {
     let window = app_window.get_window("main").unwrap();
     helper::download_dict(abbr, window).await?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn delete_dict(abbr: &str) -> Result<(), String> {
+    if let Err(e) = delete_json_file(abbr) {
+        return Err(e.to_string());
+    }
     Ok(())
 }

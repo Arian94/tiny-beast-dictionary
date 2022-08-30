@@ -5,9 +5,10 @@ import { appWindow } from '@tauri-apps/api/window';
 import { createRef, MutableRefObject, useEffect, useRef, useState } from 'react';
 import styles from './App.module.scss';
 import { offlineDictionaries, onlineDictionaries } from './countries';
-import { Modal } from './Modal';
+import { Modal, NOT_DOWNLOADED } from './Modal';
 
 //todo appear icons in modal
+//todo set title on or off line
 
 type CountriesNames = keyof typeof onlineDictionaries;
 type CountriesAbbrs = typeof onlineDictionaries[CountriesNames];
@@ -44,13 +45,13 @@ function App() {
   const isOverlappingReqEmitted = useRef(false);
   const [offlineDictsList, setOfflineDictsList] = useState<OfflineDictsList>(
     {
-      ar: { percentage: -1, volume: 'xxx', name: "Arabic" },
-      en: { percentage: -1, volume: 'xxx', name: "English" },
-      fr: { percentage: -1, volume: 'xxx', name: "French" },
-      de: { percentage: -1, volume: 'xxx', name: "German" },
-      it: { percentage: -1, volume: 'xxx', name: "Italian" },
-      fa: { percentage: -1, volume: 'xxx', name: "Persian" },
-      es: { percentage: -1, volume: 'xxx', name: "Spanish" },
+      ar: { percentage: NOT_DOWNLOADED, volume: 'xxx', name: "Arabic" },
+      en: { percentage: NOT_DOWNLOADED, volume: 'xxx', name: "English" },
+      fr: { percentage: NOT_DOWNLOADED, volume: 'xxx', name: "French" },
+      de: { percentage: NOT_DOWNLOADED, volume: 'xxx', name: "German" },
+      it: { percentage: NOT_DOWNLOADED, volume: 'xxx', name: "Italian" },
+      fa: { percentage: NOT_DOWNLOADED, volume: 'xxx', name: "Persian" },
+      es: { percentage: NOT_DOWNLOADED, volume: 'xxx', name: "Spanish" },
     }
   );
   let clipboardBuffer: string | null;
@@ -75,8 +76,22 @@ function App() {
     speak(value, fromRef.current);
   }
 
+  async function emitNewConfig() {
+    const { x, y } = await appWindow.outerPosition()
+
+    emit('new_config', {
+      activeTab: activeTabRef.current,
+      from: fromRef.current,
+      to: toRef.current,
+      selectedOfflineDict: selectedOfflineDictRef.current,
+      downloadedDicts: downloadedDicts.length ? downloadedDictsRef.current : undefined,
+      x,
+      y
+    } as SavedConfig);
+  }
+
   useEffect(() => {
-    once<SavedConfig>('saved_config', ({ payload: { activeTab, from, to, selectedOfflineDict, downloadedDicts } }) => {
+    once<SavedConfig>('get_saved_config', ({ payload: { activeTab, from, to, selectedOfflineDict, downloadedDicts } }) => {
       activeTab && setActiveTab(activeTab as 'online' | 'offline')
       from && setFrom(from)
       to && setTo(to)
@@ -86,32 +101,9 @@ function App() {
 
     emit('front_is_up');
 
-    const emitNewConfig = async () => {
-      const { x, y } = await appWindow.outerPosition()
-
-      emit('new_config', {
-        activeTab: activeTabRef.current,
-        from: fromRef.current,
-        to: toRef.current,
-        selectedOfflineDict,
-        downloadedDicts,
-        x,
-        y
-      } as SavedConfig);
-    }
-
     appWindow.onCloseRequested(e => {
       e.preventDefault();
-      console.log(
-        {
-          activeTab: activeTabRef.current,
-          from: fromRef.current,
-          to: toRef.current,
-          selectedOfflineDict: selectedOfflineDictRef.current,
-          downloadedDicts: downloadedDictsRef.current,
-        }
-      );
-
+      once("config_saved", () => appWindow.close());
       emitNewConfig();
     });
 
@@ -141,9 +133,6 @@ function App() {
       setOfflineDictsList({ ...offlineDictsList });
     });
 
-    console.log('chi shod', selectedOfflineDict);
-
-
     return () => {
       focusListener.then(f => f());
       downloadingListener.then(d => d());
@@ -156,14 +145,11 @@ function App() {
 
   useEffect(() => {
     selectedOfflineDictRef.current = selectedOfflineDict;
-    console.log('selectedOfflineDict', selectedOfflineDict);
-    
   }, [selectedOfflineDict]);
 
   useEffect(() => {
     downloadedDictsRef.current = downloadedDicts;
-    console.log('downloadedDicts', downloadedDicts);
-
+    emitNewConfig();
   }, [downloadedDicts]);
 
   useEffect(() => {
@@ -221,8 +207,6 @@ function App() {
       } else {
         if (selectedOfflineDict) {
           const valObj = await invoke<any>('offline_translate', { word: inputVal, lang: selectedOfflineDict });
-          console.log('valobj', valObj);
-          
           translationVal = valObj.senses[0].glosses[0];
         } else {
           translationVal = '';
@@ -322,13 +306,13 @@ function App() {
         </button>
       </div>
 
-      <fieldset className={styles.translation} dir={to === 'fa' || to === 'ar' ? 'rtl' : 'ltr'} style={{ opacity: loading ? .5 : 1 }}>
+      <fieldset className={styles.translation} dir={(to === 'fa' || to === 'ar') && activeTab === 'online' ? 'rtl' : 'ltr'} style={{ opacity: loading ? .5 : 1 }}>
         <legend>
           Translation
           <button
             title="Press CTRL + Enter"
-            onClick={() => speak(translationRef.current, to)} style={{ display: !translationRef.current || to === 'fa' ? 'none' : 'block' }}
-            disabled={!translationRef || to === 'fa'}>
+            onClick={() => speak(translationRef.current, to)} style={{ display: !translationRef.current || to === 'fa' || activeTab === 'offline' ? 'none' : 'block' }}
+          >
           </button>
         </legend>
         {translationRef.current}
