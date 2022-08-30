@@ -3,12 +3,12 @@ use futures_util::StreamExt;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
-use tauri::regex::Regex;
 use std::error::Error;
 use std::str::from_utf8;
 use std::sync::{mpsc, Arc, Mutex};
 use std::{collections::HashMap, fs::File, io::BufReader};
 use tauri::async_runtime::block_on;
+use tauri::regex::Regex;
 
 static JSON_DIR: &str = "json_dictionaries";
 pub static SETTINGS_FILENAME: &str = "settings/settings.json";
@@ -22,7 +22,7 @@ pub struct OfflineDict<'a> {
 #[derive(Serialize, Clone)]
 struct DictDowlonadStatus<'a> {
     name: &'a str,
-    percentage: u8,
+    percentage: i8,
 }
 
 lazy_static! {
@@ -38,8 +38,8 @@ lazy_static! {
         (
             "en",
             OfflineDict {
-                // url: "https://kaikki.org/dictionary/French/by-pos/name/kaikki.org-dictionary-French-by-pos-name.json",
-                url: "https://kaikki.org/dictionary/French/by-pos/pron/kaikki.org-dictionary-French-by-pos-pron.json",
+                url: "https://kaikki.org/dictionary/French/by-pos/name/kaikki.org-dictionary-French-by-pos-name.json", // 7.3mb
+                // url: "https://kaikki.org/dictionary/French/by-pos/pron/kaikki.org-dictionary-French-by-pos-pron.json", // 300kb
                 length: 24,
                 name: "English"
             }
@@ -47,7 +47,8 @@ lazy_static! {
         (
             "fr",
             OfflineDict {
-                url: "https://kaikki.org/dictionary/French/by-pos/pron/kaikki.org-dictionary-French-by-pos-pron.json",
+                // url: "https://kaikki.org/dictionary/French/by-pos/pron/kaikki.org-dictionary-French-by-pos-pron.json", // 300kb
+                url: "https://kaikki.org/dictionary/French/by-pos/adv/kaikki.org-dictionary-French-by-pos-adv.json", //4mb
                 length: 7 * 1024 * 1024,
                 name: "French"
             }
@@ -140,14 +141,15 @@ fn rectify_incorrect_string(incorrect_string: String, abbr: &str) -> Value {
     JSON_REGEX.captures_iter(&incorrect_string).for_each(|c| {
         let val = &c[0];
         let k = &c[1];
-        let to_be_removed = format!("\"word\": \"{k}\", \"lang\": \"{name}\", \"lang_code\": \"{abbr}\",");
+        let to_be_removed =
+            format!("\"word\": \"{k}\", \"lang\": \"{name}\", \"lang_code\": \"{abbr}\",");
         let mut removed_val = val.replace(&to_be_removed, "");
         removed_val.push(',');
         let res = format!("\"{k}\":{removed_val}");
         correct_val.push_str(&res);
     });
 
-    correct_val.pop();   // in the loop, an additional ',' will be pushed which must be removed to make it a valid json.
+    correct_val.pop(); // in the loop, an additional ',' will be pushed which must be removed to make it a valid json.
     correct_val.insert(0, '{');
     correct_val.push('}');
     let correct_val = serde_json::from_str::<Value>(&correct_val).unwrap();
@@ -168,29 +170,49 @@ fn create_write_json_file(filename: &str, file_value: Value) -> Result<(), Strin
 }
 
 pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), String> {
+    let once_abbr = abbr.to_owned();
+    let (t_once_x, r_once_x) = mpsc::channel::<bool>();
+    let win_arc = Arc::new(Mutex::new(window.to_owned()));
+    let ev_han = window.listen("cancel_download", move |event| {
+        if event.payload().unwrap() == once_abbr {
+            if let Err(e) = t_once_x.send(true) {
+                eprintln!("{}", e.to_string());
+            }
+        }
+    });
     let value = OFFLINE_DICTS.get(&abbr).unwrap();
     let res = reqwest::get(value.url)
         .await
         .or(Err("connection error".to_string()))?;
     let total_size = res.content_length().unwrap_or(value.length);
-    let incorrect_string_arc = Arc::new(Mutex::new(String::new()));
     let mut stream = res.bytes_stream();
-    let (tx, rx) = mpsc::channel::<u8>();
-    let arc_clone = Arc::clone(&incorrect_string_arc);
-
-    std::thread::spawn(move || -> Result<(), String> {
+    let (tx, rx) = mpsc::channel::<i8>();
+    let incorrect_string_arc = Arc::new(Mutex::new(String::new()));
+    let incorrect_str_arc_clone = Arc::clone(&incorrect_string_arc);
+    std::thread::spawn::<_, Result<(), String>>(move || {
         let mut downloaded: u64 = 0;
         'blocking_while: while let Some(item) = block_on(stream.next()) {
+            match r_once_x.try_recv() {
+                Ok(cancel_dl) => {
+                    if cancel_dl {
+                        win_arc.lock().unwrap().unlisten(ev_han);
+                        tx.send(-1)
+                            .or(Err("error in sending cancel message".to_string()))?;
+                        break 'blocking_while;
+                    }
+                }
+                _ => {}
+            }
+
             let chunk = item.or(Err(format!("error while downloading file")))?;
-            let mut incorrect_string = arc_clone.lock().unwrap();
-            incorrect_string.push_str(from_utf8(&chunk)
-            .or(Err(format!("invalid utf8 char")))?);
+            let mut incorrect_string = incorrect_str_arc_clone.lock().unwrap();
+            incorrect_string.push_str(from_utf8(&chunk).or(Err(format!("invalid utf8 char")))?);
             let len = chunk.len() as u64;
-            let new_size = (downloaded + len) * 100 / total_size;
+            let new_percentage = (downloaded + len) * 100 / total_size;
             downloaded += len;
-            tx.send(new_size as u8)
+            tx.send(new_percentage as i8)
                 .or(Err(format!("error in sending message")))?;
-            if new_size == 100 {
+            if new_percentage == 100 {
                 break 'blocking_while;
             }
         }
@@ -198,7 +220,7 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     });
     let now = std::time::Instant::now();
     let mut dur = std::time::Duration::new(2, 0);
-    let emit_dl_status = |p: u8, print_msg: &str| -> Result<(), String> {
+    let emit_dl_status = |p: i8, print_msg: &str| -> Result<(), String> {
         eprintln!("{print_msg} {p}%");
         window
             .emit(
@@ -215,10 +237,13 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     'state_loop: loop {
         match rx.recv() {
             Ok(percentage) => {
+                if percentage == -1 {
+                    return Err("download canceled".to_string());
+                }
                 if dur > now.elapsed() {
                     continue;
                 }
-                emit_dl_status(percentage, "downloading").unwrap();
+                emit_dl_status(percentage, &format!("downloading {abbr}")).unwrap();
                 dur = std::time::Duration::new(dur.as_secs() + 2, 0);
             }
             Err(e) => {
@@ -226,7 +251,7 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
                 if !e.to_string().contains("closed channel") {
                     return Err(format!("something went wrong"));
                 }
-                emit_dl_status(99, "wait").unwrap();
+                emit_dl_status(99, &format!("wait {abbr}")).unwrap();
                 break 'state_loop;
             }
         }

@@ -1,9 +1,14 @@
 
 import { invoke } from "@tauri-apps/api";
+import { emit } from "@tauri-apps/api/event";
 import { appWindow } from '@tauri-apps/api/window';
 import { useEffect } from "react";
 import { OfflineDictAbbrs, OfflineDictsList } from "./App";
 import styles from "./Modal.module.scss";
+
+const NOT_DOWNLOADED = -1;
+const WAIT_FOR_PROCESSING = 99;
+const DOWNLOADED = 100;
 
 export const Modal: React.FC<{
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -15,39 +20,51 @@ export const Modal: React.FC<{
 }>
   = ({ setIsOpen, downloadedDicts, setDownloadedDicts, offlineDictsList, setOfflineDictsList, setSelectedOfflineDict }) => {
     useEffect(() => {
-      downloadedDicts.forEach(dd => offlineDictsList[dd].percentage = 100);
+      downloadedDicts.forEach(dd => offlineDictsList[dd].percentage = DOWNLOADED);
       setOfflineDictsList({ ...offlineDictsList });
     }, []);
 
     const downloadCancelDelete = (abbr: OfflineDictAbbrs) => {
-      offlineDictsList[abbr].percentage = 0;
-      setOfflineDictsList({ ...offlineDictsList });
-      console.log('download for', abbr, 'started');
-      invoke<string>('download_dict', { abbr, appWindow }).then((possibleErr) => {
-        console.log(possibleErr)
-        if (possibleErr) return;
-        downloadedDicts.push(abbr);
-        setDownloadedDicts(downloadedDicts.slice());
-        offlineDictsList[abbr].percentage = 100;
+      if (offlineDictsList[abbr].percentage === DOWNLOADED) {  //* to delete
+
+      } else if (offlineDictsList[abbr].percentage === NOT_DOWNLOADED) {  //* to download
+        // console.log('download for', abbr, 'started');
+        offlineDictsList[abbr].percentage = 0;
         setOfflineDictsList({ ...offlineDictsList });
-        setSelectedOfflineDict(abbr);
-      });
+        invoke<void>('download_dict', { abbr, appWindow })
+          .then(() => {
+            downloadedDicts.push(abbr);
+            setDownloadedDicts(downloadedDicts.slice());
+            offlineDictsList[abbr].percentage = DOWNLOADED;
+            setSelectedOfflineDict(abbr);
+          })
+          .catch(possibleErrOrCancelation => {
+            console.log(possibleErrOrCancelation)
+            offlineDictsList[abbr].percentage = NOT_DOWNLOADED;
+          })
+          .finally(() => setOfflineDictsList({ ...offlineDictsList }));
+      } else {  //* to cancel
+        emit('cancel_download', abbr)
+      }
     }
 
     const langOptions = () => {
       return (Object.keys(offlineDictsList) as OfflineDictAbbrs[])
         .map(abbr => {
           const dict = offlineDictsList[abbr];
-          const dlStatusIcon = dict.percentage === -1 ? '/src/assets/download.svg' : dict.percentage === 100 ? '/src/assets/delete.svg' : '/src/assets/cancel.svg';
+          const dlStatusIcon = dict.percentage === NOT_DOWNLOADED ? '/src/assets/download.svg' : dict.percentage === DOWNLOADED ? '/src/assets/delete.svg' : '/src/assets/cancel.svg';
           return (
             <div key={abbr} className={styles.dict}>
               <span>{dict.name} ({dict.volume} MB)</span>
               <div className={styles.download}>
                 {dict.percentage !== -1 && dict.percentage !== 100 ? <span>{dict.percentage}%</span> : ''}
                 <button
+                  disabled={dict.percentage === WAIT_FOR_PROCESSING}
                   style={{
                     backgroundImage: `url(${dlStatusIcon})`,
-                    backgroundSize: true ? '20px' : '25px'
+                    backgroundSize: true ? '20px' : '25px',
+                    opacity: dict.percentage === WAIT_FOR_PROCESSING ? '0.5' : '',
+                    cursor: dict.percentage === WAIT_FOR_PROCESSING ? 'default' : '',
                   }}
                   onClick={() => downloadCancelDelete(abbr)}
                 ></button>
