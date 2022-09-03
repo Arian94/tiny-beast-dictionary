@@ -164,4 +164,37 @@ fieldset {
       background-color: rgb(190, 194, 255);
     }
   }
+
+  .offlineMode {
+    width: 100%;
+
+    :is(.pos, .senses) {
+      padding-inline: 4px;
+    }
+
+    h3 {
+      margin-block: 8px;
+    }
+
+    .senses {
+      .examples {
+        padding-inline: 4px;
+        margin-bottom: 3px;
+        border: 1px solid gray;
+        border-radius: 10px;
+
+        p {
+          font-size: 14px;
+
+          span {
+            font-weight: 600;
+          }
+        }
+      }
+
+      hr {
+        border: 1px dashed pink;
+      }
+    }
+  }
 }

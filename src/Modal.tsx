@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api";
 import { emit } from "@tauri-apps/api/event";
 import { appWindow } from '@tauri-apps/api/window';
 import { useEffect } from "react";
-import { OfflineDictAbbrs, OfflineDictsList } from "./App";
+import { OfflineDictAbbrs, OfflineDictsList } from "./models";
 import styles from "./Modal.module.scss";
 
 export const NOT_DOWNLOADED = -1;
@@ -16,9 +16,10 @@ export const Modal: React.FC<{
   setDownloadedDicts: React.Dispatch<React.SetStateAction<(OfflineDictAbbrs)[]>>;
   offlineDictsList: OfflineDictsList;
   setOfflineDictsList: React.Dispatch<React.SetStateAction<OfflineDictsList>>;
+  selectedOfflineDict?: OfflineDictAbbrs;
   setSelectedOfflineDict: React.Dispatch<React.SetStateAction<OfflineDictAbbrs | undefined>>;
 }>
-  = ({ setIsOpen, downloadedDicts, setDownloadedDicts, offlineDictsList, setOfflineDictsList, setSelectedOfflineDict }) => {
+  = ({ setIsOpen, downloadedDicts, setDownloadedDicts, offlineDictsList, setOfflineDictsList, selectedOfflineDict, setSelectedOfflineDict }) => {
     useEffect(() => {
       downloadedDicts.forEach(dd => offlineDictsList[dd].percentage = DOWNLOADED);
       setOfflineDictsList({ ...offlineDictsList });
@@ -33,7 +34,7 @@ export const Modal: React.FC<{
             downloadedDicts.splice(idx, 1);
             setDownloadedDicts(downloadedDicts.slice());
             !downloadedDicts.length && setSelectedOfflineDict(undefined);
-            downloadedDicts.length === 1 && setSelectedOfflineDict(downloadedDicts[0]);
+            abbr === selectedOfflineDict && setSelectedOfflineDict(downloadedDicts[0]);
             setOfflineDictsList({ ...offlineDictsList });
           })
           .catch(e => console.error(e))

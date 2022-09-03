@@ -14,10 +14,10 @@ use google_translate::Translator;
 use helper::*;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::sync::{Mutex, Arc};
+use std::sync::{Arc, Mutex};
 use tauri::{
-    CustomMenuItem, Manager, PhysicalPosition, SystemTray, SystemTrayEvent, SystemTrayMenu,
-    SystemTrayMenuItem,
+    CustomMenuItem, Manager, PhysicalPosition, PhysicalSize, SystemTray, SystemTrayEvent,
+    SystemTrayMenu, SystemTrayMenuItem,
 };
 use tts_rust::languages::Languages::*;
 use tts_rust::GTTSClient;
@@ -73,7 +73,7 @@ fn main() {
         .setup(|app| {
             let window = app.get_window("main").unwrap();
             let win_arc = Arc::new(Mutex::new(window.to_owned()));
-            window.listen("new_config",  move |event| {
+            window.listen("new_config", move |event| {
                 let payload = event.payload().unwrap();
                 write_payload(SETTINGS_FILENAME, payload)
                     .is_ok()
@@ -88,6 +88,10 @@ fn main() {
                         window.set_position(PhysicalPosition {
                             x: config["x"].as_f64().unwrap(),
                             y: config["y"].as_f64().unwrap(),
+                        })?;
+                        window.set_size(PhysicalSize {
+                            width: config["width"].as_f64().unwrap(),
+                            height: config["height"].as_f64().unwrap(),
                         })?;
                     }
                     window.to_owned().listen("front_is_up", move |_| {

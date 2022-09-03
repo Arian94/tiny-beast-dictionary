@@ -4,17 +4,15 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { appWindow } from '@tauri-apps/api/window';
 import { createRef, MutableRefObject, useEffect, useRef, useState } from 'react';
 import styles from './App.module.scss';
-import { offlineDictionaries, onlineDictionaries } from './countries';
+import { onlineDictionaries } from './countries';
 import { Modal, NOT_DOWNLOADED } from './Modal';
+import { OfflineDictAbbrs, OfflineDictsList, offlineTranslation } from './models';
 
 //todo appear icons in modal
 //todo set title on or off line
 
 type CountriesNames = keyof typeof onlineDictionaries;
 type CountriesAbbrs = typeof onlineDictionaries[CountriesNames];
-export type OfflineDictNames = keyof typeof offlineDictionaries;
-export type OfflineDictAbbrs = typeof offlineDictionaries[OfflineDictNames];
-export type OfflineDictsList = { [key in OfflineDictAbbrs]: { percentage: number; volume: string; name: OfflineDictNames } };
 type SavedConfig = {
   activeTab: 'online' | 'offline';
   from: CountriesAbbrs | 'auto';
@@ -24,7 +22,7 @@ type SavedConfig = {
   x: number;
   y: number;
 }
-export type DownloadStatus = { name: OfflineDictAbbrs; percentage: number };
+type DownloadStatus = { name: OfflineDictAbbrs; percentage: number };
 
 function App() {
   const [inputVal, setInputVal] = useState("");
@@ -34,7 +32,7 @@ function App() {
   const [from, setFrom] = useState<CountriesAbbrs | 'auto'>('auto');
   const toRef = useRef<CountriesAbbrs>('en');
   const [to, setTo] = useState<CountriesAbbrs>('en');
-  const translationRef = useRef('');
+  const translationRef = useRef<string | offlineTranslation>('');
   const [loading, setLoading] = useState<boolean>(false);
   const inputRef = createRef<HTMLInputElement>();
   const [isOpen, setIsOpen] = useState(false);
@@ -57,7 +55,7 @@ function App() {
   let clipboardBuffer: string | null;
   let isSpeaking = false;
 
-  const setRefCurrent = (ref: MutableRefObject<string>, value: string) => {
+  const setRefCurrent = (ref: MutableRefObject<string | offlineTranslation>, value: string | offlineTranslation) => {
     ref.current = value
   }
 
@@ -65,28 +63,34 @@ function App() {
     if (!translationRef.current) return;
     if (toRef.current === 'fa') return;
     if (e.key !== 'Enter' || !e.ctrlKey) return;
-    speak(translationRef.current, toRef.current);
+    if (activeTab === 'offline') return;
+    speak(translationRef.current as string, toRef.current);
   }
 
   function inputSpeakHandler(this: HTMLInputElement, e: KeyboardEvent) {
     if (e.key !== 'Enter') return;
-    if (fromRef.current === 'fa') return;
     if (e.ctrlKey) return;
+    if (activeTabRef.current === 'online' && fromRef.current === 'fa') return;
+    if (activeTabRef.current === 'offline' && selectedOfflineDictRef.current === 'fa') return;
+
     const { value } = this;
-    speak(value, fromRef.current);
+    speak(value, activeTabRef.current === 'online' ? fromRef.current : selectedOfflineDictRef.current || 'auto');
   }
 
   async function emitNewConfig() {
-    const { x, y } = await appWindow.outerPosition()
+    const { x, y } = await appWindow.outerPosition();
+    const { width, height } = await appWindow.innerSize();
 
     emit('new_config', {
       activeTab: activeTabRef.current,
       from: fromRef.current,
       to: toRef.current,
       selectedOfflineDict: selectedOfflineDictRef.current,
-      downloadedDicts: downloadedDicts.length ? downloadedDictsRef.current : undefined,
+      downloadedDicts: downloadedDictsRef.current.length ? downloadedDictsRef.current : undefined,
       x,
-      y
+      y,
+      width,
+      height
     } as SavedConfig);
   }
 
@@ -180,6 +184,46 @@ function App() {
     return ops
   }
 
+  const renderOfflineTranslations = () => {
+    if (typeof translationRef.current === 'string') return;
+    return (
+      <div className={styles.offlineMode}>
+        <h3>Position:</h3>
+        <div className={styles.pos}>{translationRef.current.pos}</div>
+        <h3>Senses: {translationRef.current.senses[0].categories?.length}</h3>
+        <div className={styles.senses}>
+          {translationRef.current.senses.map(s => {
+            return <div key={s.glosses[0]}>
+              {!!s.categories?.length && <p key={s.categories[0].name}>Categories: {s.categories.map(c => c.name).join(", ")}</p>}
+              <p >Glosses: {[...s.glosses]}</p>
+              {s.tags && <p>Tags: {s.tags.join(', ')}</p>}
+              {s.form_of && <p >Form of: {s.form_of.word} </p>}
+              {!!s.examples?.length && <div>
+                <strong >Examples:</strong>
+                {s.examples.map(e => {
+                  return <div key={e.text} className={styles.examples}>
+                    {e.text && <p><span>Text:</span> {e.text}</p>}
+                    {e.english && <p><span>English:</span> {e.english}</p>}
+                    {e.type && <p><span>Type:</span> {e.type}</p>}
+                    {e.ref && <p><span>Reference:</span> {e.ref}</p>}
+                  </div>
+                })}
+              </div>}
+              <hr />
+            </div>
+          })}
+        </div>
+
+        {translationRef.current.etymology_text && <div>
+          <strong key="ety text">Etymology text:</strong> {translationRef.current.etymology_text}
+        </div>}
+        {translationRef.current.etymology_templates && <div>
+          <strong key="ety temp">Etymology templates:</strong> {translationRef.current.etymology_templates.map(et => et.expansion).join(", ")}
+        </div>}
+      </div>
+    )
+  }
+
   const offlineLangOptions = () => {
     return downloadedDicts.map(d => {
       return <option key={d} value={d}>{offlineDictsList[d].name}</option>
@@ -187,9 +231,9 @@ function App() {
   }
 
   const swapLang = () => {
-    setFrom(to)
-    setTo(from === 'auto' ? to === 'en' ? 'fr' : 'en' : from)
-    setInputVal(translationRef.current)
+    setFrom(to);
+    setTo(from === 'auto' ? to === 'en' ? 'fr' : 'en' : from);
+    setInputVal(translationRef.current as string);
     setTimeout(() => handler(), 0);
   }
 
@@ -200,21 +244,19 @@ function App() {
   }
 
   const invokeBackend = async () => {
-    let translationVal = '';
+    let translationVal: string | offlineTranslation;
     try {
       if (activeTab === 'online') {
         translationVal = await invoke<string>('online_translate', { from: fromRef.current, to: toRef.current, word: inputVal });
       } else {
         if (selectedOfflineDict) {
-          const valObj = await invoke<any>('offline_translate', { word: inputVal, lang: selectedOfflineDict });
-          translationVal = valObj.senses[0].glosses[0];
+          translationVal = await invoke<offlineTranslation>('offline_translate', { word: inputVal, lang: selectedOfflineDict });
         } else {
           translationVal = '';
         }
       }
     } catch (er: any) {
       translationVal = er;
-      // translationVal = er === 'not found' ? er : 'connection error';
     }
 
     if (isOverlappingReqEmitted.current)
@@ -239,6 +281,7 @@ function App() {
         setDownloadedDicts={setDownloadedDicts}
         offlineDictsList={offlineDictsList}
         setOfflineDictsList={setOfflineDictsList}
+        selectedOfflineDict={selectedOfflineDict}
         setSelectedOfflineDict={setSelectedOfflineDict}
       />}
       <div className={styles.switches}>
@@ -289,7 +332,7 @@ function App() {
       </div>
 
       <div className={styles.input}>
-        <input ref={inputRef} autoFocus maxLength={256} placeholder={from === 'fa' ? 'جستجو...' : 'search...'} value={inputVal} onInput={event => setInputVal(event.currentTarget.value)}
+        <input ref={inputRef} autoFocus maxLength={256} placeholder={from === 'fa' ? 'جستجو...' : 'search...'} value={inputVal} onInput={event => {translationRef.current = ''; setInputVal(event.currentTarget.value)}}
           style={{
             direction: from === 'fa' || from === 'ar' ? 'rtl' : 'ltr',
             fontFamily: from === 'fa' || from === 'ar' ? 'Noto Naskh' : 'inherit',
@@ -297,7 +340,7 @@ function App() {
           }} />
         <button
           title="Press Enter"
-          onClick={() => speak(inputVal, from)}
+          onClick={() => speak(inputVal, activeTab === 'online' ? from : selectedOfflineDict || 'auto')}
           style={{
             opacity: !inputVal || from === 'fa' ? .5 : 1, left: from !== 'fa' && from !== 'ar' ? '2px' : 'unset', right: from !== 'fa' && from !== 'ar' ? 'unset' : '2px',
             transform: from === 'fa' || from === 'ar' ? 'scaleX(-1)' : 'unset'
@@ -311,11 +354,15 @@ function App() {
           Translation
           <button
             title="Press CTRL + Enter"
-            onClick={() => speak(translationRef.current, to)} style={{ display: !translationRef.current || to === 'fa' || activeTab === 'offline' ? 'none' : 'block' }}
+            onClick={() => speak(translationRef.current as string, to)} style={{ display: !translationRef.current || to === 'fa' || activeTab === 'offline' ? 'none' : 'block' }}
           >
           </button>
         </legend>
-        {translationRef.current}
+        {typeof translationRef.current === 'string' ?
+          translationRef.current
+          :
+          renderOfflineTranslations()
+        }
       </fieldset>
     </div>
   )
