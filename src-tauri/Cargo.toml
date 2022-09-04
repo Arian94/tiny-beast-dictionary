@@ -22,7 +22,7 @@ reqwest = {version = "0.11.10", features = ["stream"] }
 scraper = "0.13.0"
 serde = {version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tauri = {version = "1.0.5", features = ["api-all", "system-tray"] }
+tauri = {version = "1.0.5", features = ["clipboard-read-text", "fs-create-dir", "fs-read-dir", "fs-read-file", "fs-remove-file", "fs-write-file", "shell-all", "system-tray", "window-center", "window-close", "window-hide", "window-maximize", "window-minimize", "window-set-position", "window-set-size", "window-set-title", "window-show"] }
 tts_rust = "0.3.3"
 
 [features]

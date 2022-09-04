@@ -8,9 +8,6 @@ import { onlineDictionaries } from './countries';
 import { Modal, NOT_DOWNLOADED } from './Modal';
 import { OfflineDictAbbrs, OfflineDictsList, offlineTranslation } from './models';
 
-//todo appear icons in modal
-//todo set title on or off line
-
 type CountriesNames = keyof typeof onlineDictionaries;
 type CountriesAbbrs = typeof onlineDictionaries[CountriesNames];
 type SavedConfig = {
@@ -43,13 +40,13 @@ function App() {
   const isOverlappingReqEmitted = useRef(false);
   const [offlineDictsList, setOfflineDictsList] = useState<OfflineDictsList>(
     {
-      ar: { percentage: NOT_DOWNLOADED, volume: 'xxx', name: "Arabic" },
-      en: { percentage: NOT_DOWNLOADED, volume: 'xxx', name: "English" },
-      fr: { percentage: NOT_DOWNLOADED, volume: 'xxx', name: "French" },
-      de: { percentage: NOT_DOWNLOADED, volume: 'xxx', name: "German" },
-      it: { percentage: NOT_DOWNLOADED, volume: 'xxx', name: "Italian" },
-      fa: { percentage: NOT_DOWNLOADED, volume: 'xxx', name: "Persian" },
-      es: { percentage: NOT_DOWNLOADED, volume: 'xxx', name: "Spanish" },
+      ar: { percentage: NOT_DOWNLOADED, volume: '429', name: "Arabic" },
+      en: { percentage: NOT_DOWNLOADED, volume: '1536', name: "English" },
+      fr: { percentage: NOT_DOWNLOADED, volume: '324', name: "French" },
+      de: { percentage: NOT_DOWNLOADED, volume: '685', name: "German" },
+      it: { percentage: NOT_DOWNLOADED, volume: '424', name: "Italian" },
+      fa: { percentage: NOT_DOWNLOADED, volume: '57', name: "Persian" },
+      es: { percentage: NOT_DOWNLOADED, volume: '617', name: "Spanish" },
     }
   );
   let clipboardBuffer: string | null;
@@ -145,6 +142,7 @@ function App() {
 
   useEffect(() => {
     activeTabRef.current = activeTab;
+    appWindow.setTitle(`Tiny Beast (${activeTab})`);
   }, [activeTab]);
 
   useEffect(() => {
@@ -313,11 +311,7 @@ function App() {
             <button title="Add or Remove" onClick={() => setIsOpen(true)}></button>
             <div className={styles.offlineDict}>
               <span>Select an offline dictionary:</span>
-              <select value={selectedOfflineDict} onChange={e => {
-                console.log('i am changed');
-
-                setSelectedOfflineDict(e.target.value as OfflineDictAbbrs)
-              }}>
+              <select value={selectedOfflineDict} onChange={e => setSelectedOfflineDict(e.target.value as OfflineDictAbbrs)}>
                 <>
                   {offlineLangOptions()}
                 </>
@@ -332,20 +326,24 @@ function App() {
       </div>
 
       <div className={styles.input}>
-        <input ref={inputRef} autoFocus maxLength={256} placeholder={from === 'fa' ? 'جستجو...' : 'search...'} value={inputVal} onInput={event => {translationRef.current = ''; setInputVal(event.currentTarget.value)}}
+        <input ref={inputRef} autoFocus maxLength={256}
+          placeholder={(activeTab === 'online' && from === 'fa') || (activeTab === 'offline' && selectedOfflineDict === 'fa') ? 'جستجو...' : 'search...'}
+          value={inputVal} onInput={event => { translationRef.current = ''; setInputVal(event.currentTarget.value) }}
           style={{
-            direction: from === 'fa' || from === 'ar' ? 'rtl' : 'ltr',
-            fontFamily: from === 'fa' || from === 'ar' ? 'Noto Naskh' : 'inherit',
-            fontSize: from === 'fa' || from === 'ar' ? '15px' : ''
+            direction: (activeTab === 'online' && from === 'fa' || from === 'ar') || (activeTab === 'offline' && selectedOfflineDict === 'fa' || selectedOfflineDict === 'ar') ? 'rtl' : 'ltr',
+            fontFamily: (activeTab === 'offline' && from === 'fa' || from === 'ar') || (activeTab === 'offline' && selectedOfflineDict === 'fa' || selectedOfflineDict === 'ar') ? 'Noto Naskh' : 'inherit',
+            fontSize: (activeTab === 'offline' && from === 'fa' || from === 'ar') || (activeTab === 'offline' && selectedOfflineDict === 'fa' || selectedOfflineDict === 'ar') ? '15px' : ''
           }} />
         <button
           title="Press Enter"
           onClick={() => speak(inputVal, activeTab === 'online' ? from : selectedOfflineDict || 'auto')}
           style={{
-            opacity: !inputVal || from === 'fa' ? .5 : 1, left: from !== 'fa' && from !== 'ar' ? '2px' : 'unset', right: from !== 'fa' && from !== 'ar' ? 'unset' : '2px',
-            transform: from === 'fa' || from === 'ar' ? 'scaleX(-1)' : 'unset'
+            opacity: !inputVal || (activeTab === 'online' && from === 'fa') || (activeTab === 'offline' && selectedOfflineDict === 'fa') ? .5 : 1,
+            left: (activeTab === 'online' && from !== 'fa' && from !== 'ar') || (activeTab === 'offline' && selectedOfflineDict !== 'fa' && selectedOfflineDict !== 'ar') ? '2px' : 'unset',
+            right: (activeTab === 'online' && from !== 'fa' && from !== 'ar') ||  (activeTab === 'offline' && selectedOfflineDict !== 'fa' && selectedOfflineDict !== 'ar') ? 'unset' : '2px',
+            transform: (activeTab === 'online' && from === 'fa' || from === 'ar') || (activeTab === 'offline' && selectedOfflineDict === 'fa' || selectedOfflineDict === 'ar') ? 'scaleX(-1)' : 'unset'
           }}
-          disabled={!inputVal || from === 'fa'}>
+          disabled={!inputVal || (activeTab === 'online' && from === 'fa') || (activeTab === 'offline' && selectedOfflineDict === 'fa')}>
         </button>
       </div>
 
@@ -358,11 +356,7 @@ function App() {
           >
           </button>
         </legend>
-        {typeof translationRef.current === 'string' ?
-          translationRef.current
-          :
-          renderOfflineTranslations()
-        }
+        {typeof translationRef.current === 'string' ? translationRef.current : renderOfflineTranslations()}
       </fieldset>
     </div>
   )

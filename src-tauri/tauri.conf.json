@@ -8,8 +8,8 @@
     "withGlobalTauri": true
   },
   "package": {
-    "productName": "tiny dictionary",
-    "version": "1.2.2"
+    "productName": "tiny beast dictionary",
+    "version": "1.2.3"
   },
   "tauri": {
     "systemTray": {
@@ -17,7 +17,34 @@
       "iconAsTemplate": true
     },
     "allowlist": {
-      "all": true
+      "all": false,
+      "fs": {
+        "all": false,
+        "writeFile": true,
+        "readFile": true,
+        "createDir": true,
+        "readDir": true,
+        "removeFile": true
+      },
+      "clipboard": {
+        "all": false,
+        "readText": true
+      },
+      "window": {
+        "all": false,
+        "center": true,
+        "close": true,
+        "hide": true,
+        "maximize": true,
+        "minimize": true,
+        "setPosition": true,
+        "setSize": true,
+        "setTitle": true,
+        "show": true
+      },
+      "shell": {
+        "all": true
+      }
     },
     "bundle": {
       "active": true,
@@ -35,7 +62,7 @@
         "icons/128x128.png"
       ],
       "identifier": "com.dictionary",
-      "longDescription": "tiny app for online/offline dictionaries. it works using google translate api and offline english-to-persian database.",
+      "longDescription": "tiny app for online/offline dictionaries. it works using google translate api and downloads dictionaries from kaikki.org to be used offline.",
       "macOS": {
         "entitlements": null,
         "exceptionDomain": "",
@@ -43,9 +70,14 @@
         "providerShortName": null,
         "signingIdentity": null
       },
-      "resources": ["json_dictionaries", "settings"],
+      "resources": [
+        "settings.json"
+      ],
       "shortDescription": "tiny app for online/offline dictionaries",
-      "targets": "deb",
+      "targets": [
+        "deb",
+        "msi"
+      ],
       "windows": {
         "certificateThumbprint": null,
         "digestAlgorithm": "sha256",
@@ -60,7 +92,7 @@
     },
     "windows": [
       {
-        "title": "Tiny Dictionary",
+        "title": "Tiny Beast Dictionary",
         "fullscreen": false,
         "minWidth": 290,
         "width": 290,

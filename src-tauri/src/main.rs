@@ -46,7 +46,7 @@ fn main() {
                     let window = app.get_window("main").unwrap();
                     window.once("new_config", |event| {
                         let payload = event.payload().unwrap();
-                        write_payload(SETTINGS_FILENAME, payload)
+                        open_write_json_payload(&find_absolute_resource_path(SETTINGS_FILENAME), payload)
                             .is_ok()
                             .then(|| std::process::exit(0));
                     });
@@ -55,7 +55,7 @@ fn main() {
                 "hide" => {
                     let item_handle = app.tray_handle().get_item(&id);
                     let window = app.get_window("main").unwrap();
-                    println!("it is: {}", window.is_visible().unwrap_or(false));
+                    eprintln!("{}", window.is_visible().unwrap_or(false));
                     if window.is_visible().unwrap_or(false) {
                         window.hide().unwrap();
                         item_handle.set_title("Show").unwrap();
@@ -75,13 +75,17 @@ fn main() {
             let win_arc = Arc::new(Mutex::new(window.to_owned()));
             window.listen("new_config", move |event| {
                 let payload = event.payload().unwrap();
-                write_payload(SETTINGS_FILENAME, payload)
-                    .is_ok()
-                    .then(|| win_arc.lock().unwrap().emit("config_saved", ""));
+                if let Err(e) =
+                    open_write_json_payload(&find_absolute_resource_path(SETTINGS_FILENAME), payload)
+                {
+                    eprintln!("error in writing new config: {e}");
+                } else {
+                    win_arc.lock().unwrap().emit("config_saved", "").unwrap();
+                }
             });
 
             match read_json_file::<HashMap<String, serde_json::Value, RandomState>>(
-                SETTINGS_FILENAME,
+                &find_absolute_resource_path(SETTINGS_FILENAME),
             ) {
                 Ok(config) => {
                     if config.get("x").is_some() {
@@ -98,7 +102,7 @@ fn main() {
                         window.emit("get_saved_config", config.to_owned()).unwrap();
                     });
                 }
-                Err(err) => println!("{err}"),
+                Err(err) => eprintln!("{err}"),
             };
             Ok(())
         })
@@ -217,7 +221,7 @@ async fn download_dict(abbr: &str, app_window: tauri::Window) -> Result<(), Stri
 
 #[tauri::command]
 async fn delete_dict(abbr: &str) -> Result<(), String> {
-    if let Err(e) = delete_json_file(abbr) {
+    if let Err(e) = delete_json_file(&find_absolute_resource_path(&format!("{JSON_DIR}/{abbr}"))) {
         return Err(e.to_string());
     }
     Ok(())

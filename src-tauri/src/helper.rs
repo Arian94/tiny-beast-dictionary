@@ -9,15 +9,14 @@ use std::str::from_utf8;
 use std::sync::{mpsc, Arc, Mutex};
 use std::{collections::HashMap, fs::File, io::BufReader};
 use std::{fs, io};
-use tauri::async_runtime::block_on;
-use tauri::regex::Regex;
+use tauri::{regex::Regex, async_runtime::block_on};
 
-static JSON_DIR: &str = "json_dictionaries";
-pub static SETTINGS_FILENAME: &str = "settings/settings.json";
+pub static JSON_DIR: &str = "json_dictionaries";
+pub static SETTINGS_FILENAME: &str = "settings";
 
 pub struct OfflineDict<'a> {
     url: &'a str,
-    length: u64,
+    length_mb: u64,
     name: &'a str,
 }
 
@@ -30,76 +29,76 @@ struct DictDowlonadStatus<'a> {
 lazy_static! {
     static ref JSON_REGEX: Regex = Regex::new(r#"(?m).*"word": "([^"]+)", "lang".*"#).unwrap();
     pub static ref PATH_BUF: PathBuf = tauri::api::path::resource_dir(tauri::generate_context!().package_info(), &tauri::Env::default()).unwrap();
-    pub static ref EN_DICT: HashMap<String, Value, RandomState> = read_json_file(&format!("{JSON_DIR}/en.json")).unwrap();
-    pub static ref FR_DICT: HashMap<String, Value, RandomState> = read_json_file(&format!("{JSON_DIR}/fr.json")).unwrap();
-    pub static ref DE_DICT: HashMap<String, Value, RandomState> = read_json_file(&format!("{JSON_DIR}/de.json")).unwrap();
-    pub static ref ES_DICT: HashMap<String, Value, RandomState> = read_json_file(&format!("{JSON_DIR}/es.json")).unwrap();
-    pub static ref IT_DICT: HashMap<String, Value, RandomState> = read_json_file(&format!("{JSON_DIR}/it.json")).unwrap();
-    pub static ref FA_DICT: HashMap<String, Value, RandomState> = read_json_file(&format!("{JSON_DIR}/fa.json")).unwrap();
-    pub static ref AR_DICT: HashMap<String, Value, RandomState> = read_json_file(&format!("{JSON_DIR}/ar.json")).unwrap();
+    pub static ref EN_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_resource_path(&format!("{JSON_DIR}/en"))).unwrap();
+    pub static ref FR_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_resource_path(&format!("{JSON_DIR}/fr"))).unwrap();
+    pub static ref DE_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_resource_path(&format!("{JSON_DIR}/de"))).unwrap();
+    pub static ref ES_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_resource_path(&format!("{JSON_DIR}/es"))).unwrap();
+    pub static ref IT_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_resource_path(&format!("{JSON_DIR}/it"))).unwrap();
+    pub static ref FA_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_resource_path(&format!("{JSON_DIR}/fa"))).unwrap();
+    pub static ref AR_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_resource_path(&format!("{JSON_DIR}/ar"))).unwrap();
     pub static ref OFFLINE_DICTS: HashMap<&'static str, OfflineDict<'static>> = HashMap::from([
         (
             "en",
             OfflineDict {
-                // url: "https://kaikki.org/dictionary/French/by-pos/name/kaikki.org-dictionary-French-by-pos-name.json", // 7.3mb
-                url: "https://kaikki.org/dictionary/French/by-pos/pron/kaikki.org-dictionary-French-by-pos-pron.json", // 300kb
-                length: 24,
+                url: "https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.json",
+                length_mb: 1536,
                 name: "English"
             }
         ),
         (
             "fr",
             OfflineDict {
-                url: "https://kaikki.org/dictionary/French/by-pos/pron/kaikki.org-dictionary-French-by-pos-pron.json", // 300kb
+                url: "https://kaikki.org/dictionary/French/kaikki.org-dictionary-French.json",
+                // url: "https://kaikki.org/dictionary/French/by-pos/pron/kaikki.org-dictionary-French-by-pos-pron.json", // 300kb
                 // url: "https://kaikki.org/dictionary/French/by-pos/adv/kaikki.org-dictionary-French-by-pos-adv.json", //4mb
-                length: 7 * 1024 * 1024,
+                length_mb: 324,
                 name: "French"
             }
         ),
         (
             "de",
             OfflineDict {
-                url: "dsa",
-                length: 24,
+                url: "https://kaikki.org/dictionary/German/kaikki.org-dictionary-German.json",
+                length_mb: 685,
                 name: "German"
             }
         ),
         (
             "es",
             OfflineDict {
-                url: "dsa",
-                length: 24,
+                url: "https://kaikki.org/dictionary/Spanish/kaikki.org-dictionary-Spanish.json",
+                length_mb: 617,
                 name: "Spanish"
             }
         ),
         (
             "it",
             OfflineDict {
-                url: "dsa",
-                length: 24,
+                url: "https://kaikki.org/dictionary/Italian/kaikki.org-dictionary-Italian.json",
+                length_mb: 424,
                 name: "Italian"
             }
         ),
         (
             "fa",
             OfflineDict {
-                url: "https://kaikki.org/dictionary/Persian/by-pos/particle/kaikki.org-dictionary-Persian-by-pos-particl-ZyLl7P",
-                length: 24,
+                url: "https://kaikki.org/dictionary/Persian/kaikki.org-dictionary-Persian.json",
+                length_mb: 57,
                 name: "Persian"
             }
         ),
         (
             "ar",
             OfflineDict {
-                url: "dsa",
-                length: 24,
+                url: "https://kaikki.org/dictionary/Arabic/kaikki.org-dictionary-Arabic.json",
+                length_mb: 429,
                 name: "Arabic"
             }
         )
     ]);
 }
 
-pub fn find_absolute_path(path: &str) -> String {
+pub fn find_absolute_resource_path(path: &str) -> String {
     let absolute_path = format!("{}/{}", PATH_BUF.to_str().unwrap(), path);
     absolute_path
 }
@@ -108,35 +107,34 @@ pub fn read_json_file<T>(path: &str) -> Result<T, Box<dyn Error>>
 where
     T: DeserializeOwned + std::fmt::Debug,
 {
-    let absolute_path = find_absolute_path(path);
-    let file = File::open(absolute_path)?;
+    let name = format!("{path}.json");
+    let file = File::open(name)?;
     let reader = BufReader::new(file);
     let json_file = serde_json::from_reader(reader)?;
     Ok(json_file)
 }
 
 pub fn delete_json_file(path: &str) -> io::Result<()> {
-    let absolute_path = find_absolute_path(&format!("{JSON_DIR}/{path}.json"));
-    fs::remove_file(absolute_path)?;
+    let name = format!("{path}.json");
+    fs::remove_file(name)?;
     Ok(())
 }
 
-pub fn write_payload(filename: &str, payload: &str) -> Result<(), String> {
-    let absolute_path = find_absolute_path(filename);
+pub fn open_write_json_payload(filename: &str, payload: &str) -> Result<(), String> {
+    let name = format!("{filename}.json");
     let config_value = serde_json::from_str::<Value>(payload).unwrap();
 
-    match File::options()
-        .write(true)
-        .truncate(true)
-        .open(absolute_path)
-    {
+    match File::options().write(true).truncate(true).open(&name) {
         Ok(file) => {
             match serde_json::to_writer(file, &config_value) {
                 Ok(it) => return Ok(it),
                 Err(err) => return Err(err.to_string()),
             };
         }
-        Err(err) => Err(err.to_string()),
+        Err(err) => {
+            eprintln!("open_write_json_payload: {err}");
+            create_write_json_file(&filename, config_value)
+        }
     }
 }
 
@@ -166,13 +164,14 @@ fn create_write_json_file(filename: &str, file_value: Value) -> Result<(), Strin
     let name = format!("{filename}.json");
     match File::create(name) {
         Ok(file) => {
-            match serde_json::to_writer(file, &file_value) {
-                Ok(it) => return Ok(it),
-                Err(err) => return Err(err.to_string()),
-            };
+            if let Err(err) = serde_json::to_writer(file, &file_value) {
+                Err(err.to_string())
+            } else {
+                Ok(())
+            }
         }
         Err(err) => return Err(err.to_string()),
-    };
+    }
 }
 
 pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), String> {
@@ -190,7 +189,9 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     let res = reqwest::get(value.url)
         .await
         .or(Err("connection error".to_string()))?;
-    let total_size = res.content_length().unwrap_or(value.length);
+    let total_size = res
+        .content_length()
+        .unwrap_or(value.length_mb * 1024 * 1024);
     let mut stream = res.bytes_stream();
     let (tx, rx) = mpsc::channel::<i8>();
     let incorrect_string_arc = Arc::new(Mutex::new(String::new()));
@@ -266,8 +267,13 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     let incorrect_string = &*incorrect_string_arc.lock().unwrap();
     let correct_val = rectify_incorrect_string(incorrect_string.to_string(), abbr);
 
+    if fs::metadata(find_absolute_resource_path(&format!("{JSON_DIR}"))).is_err() {
+        fs::create_dir_all(find_absolute_resource_path(&format!("{JSON_DIR}")))
+            .or(Err("error while creating directory.".to_string()))?;
+    }
+
     create_write_json_file(
-        &find_absolute_path(&format!("{JSON_DIR}/{abbr}")),
+        &find_absolute_resource_path(&format!("{JSON_DIR}/{abbr}")),
         correct_val,
     )?;
     eprintln!("downloaded: {abbr}");
@@ -317,7 +323,7 @@ mod tests {
 
         // Create a new, empty icon collection:
         let mut icon_dir = ico::IconDir::new(ico::ResourceType::Icon);
-        let file = std::fs::File::open("icons/128x128.png").unwrap();
+        let file = std::fs::File::open("icons/icon.png").unwrap();
         let image = ico::IconImage::read_png(file).unwrap();
         icon_dir.add_entry(ico::IconDirEntry::encode(&image).unwrap());
         let rgba = vec![std::u8::MAX; 4 * 16 * 16];

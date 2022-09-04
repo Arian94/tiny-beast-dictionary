@@ -3,8 +3,9 @@ import { invoke } from "@tauri-apps/api";
 import { emit } from "@tauri-apps/api/event";
 import { appWindow } from '@tauri-apps/api/window';
 import { useEffect } from "react";
-import { OfflineDictAbbrs, OfflineDictsList } from "./models";
+import { cancelIcon, deleteIcon, downloadIcon } from "./assets/images";
 import styles from "./Modal.module.scss";
+import { OfflineDictAbbrs, OfflineDictsList } from "./models";
 
 export const NOT_DOWNLOADED = -1;
 const WAIT_FOR_PROCESSING = 99;
@@ -63,12 +64,12 @@ export const Modal: React.FC<{
       return (Object.keys(offlineDictsList) as OfflineDictAbbrs[])
         .map(abbr => {
           const dict = offlineDictsList[abbr];
-          const dlStatusIcon = dict.percentage === NOT_DOWNLOADED ? '/src/assets/download.svg' : dict.percentage === DOWNLOADED ? '/src/assets/delete.svg' : '/src/assets/cancel.svg';
+          const dlStatusIcon = dict.percentage === NOT_DOWNLOADED ? downloadIcon : dict.percentage === DOWNLOADED ? deleteIcon : cancelIcon;
           return (
             <div key={abbr} className={styles.dict}>
               <span>{dict.name} ({dict.volume} MB)</span>
               <div className={styles.download}>
-                {dict.percentage !== -1 && dict.percentage !== 100 ? <span>{dict.percentage}%</span> : ''}
+                {dict.percentage !== -1 && dict.percentage !== 100 && <span>{dict.percentage === 99 ? <h6>processing</h6> : `${dict.percentage}%`}</span>}
                 <button
                   disabled={dict.percentage === WAIT_FOR_PROCESSING}
                   style={{
@@ -108,9 +109,6 @@ export const Modal: React.FC<{
 
           <div className={styles.modalActions}>
             <div className={styles.actionsContainer}>
-              {/* <button className={styles.deleteBtn} onClick={() => setIsOpen(false)}>
-                                Delete
-                            </button> */}
               <button
                 className={styles.cancelBtn}
                 onClick={() => setIsOpen(false)}
