@@ -4,6 +4,7 @@ version: '1.2.3' # just for humans, typically '1.2+git' or '1.3.2'
 summary: Tiny App for online/offline dictionaries.  # 79 char long summary
 description: |
   It works using google translate api and Kaikki.org database to download massive dictionaries for offline use.
+license: "GFDL"
 
 grade: stable # must be 'stable' to release into candidate/stable channels
 confinement: strict # use 'strict' once you have the right plugs and slots
@@ -12,7 +13,7 @@ parts:
   tiny-beast-dictionary:
     # See 'snapcraft plugins'
     plugin: rust
-    source: .
+    source: ./src-tauri
 
 apps:
   tiny-beast-dictionary:

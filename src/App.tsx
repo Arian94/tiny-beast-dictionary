@@ -188,7 +188,7 @@ function App() {
       <div className={styles.offlineMode}>
         <h3>Position:</h3>
         <div className={styles.pos}>{translationRef.current.pos}</div>
-        <h3>Senses: {translationRef.current.senses[0].categories?.length}</h3>
+        <h3>Senses:</h3>
         <div className={styles.senses}>
           {translationRef.current.senses.map(s => {
             return <div key={s.glosses[0]}>
@@ -331,8 +331,8 @@ function App() {
           value={inputVal} onInput={event => { translationRef.current = ''; setInputVal(event.currentTarget.value) }}
           style={{
             direction: (activeTab === 'online' && from === 'fa' || from === 'ar') || (activeTab === 'offline' && selectedOfflineDict === 'fa' || selectedOfflineDict === 'ar') ? 'rtl' : 'ltr',
-            fontFamily: (activeTab === 'offline' && from === 'fa' || from === 'ar') || (activeTab === 'offline' && selectedOfflineDict === 'fa' || selectedOfflineDict === 'ar') ? 'Noto Naskh' : 'inherit',
-            fontSize: (activeTab === 'offline' && from === 'fa' || from === 'ar') || (activeTab === 'offline' && selectedOfflineDict === 'fa' || selectedOfflineDict === 'ar') ? '15px' : ''
+            fontFamily: (activeTab === 'online' && from === 'fa' || from === 'ar') || (activeTab === 'offline' && selectedOfflineDict === 'fa' || selectedOfflineDict === 'ar') ? 'Noto Naskh' : 'inherit',
+            fontSize: (activeTab === 'online' && from === 'fa' || from === 'ar') || (activeTab === 'offline' && selectedOfflineDict === 'fa' || selectedOfflineDict === 'ar') ? '15px' : ''
           }} />
         <button
           title="Press Enter"
