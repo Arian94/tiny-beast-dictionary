@@ -8,12 +8,32 @@ license: "GFDL"
 
 grade: stable # must be 'stable' to release into candidate/stable channels
 confinement: strict # use 'strict' once you have the right plugs and slots
+architectures:
+  - amd64
 
 parts:
   tiny-beast-dictionary:
     # See 'snapcraft plugins'
     plugin: rust
     source: ./src-tauri
+    build-packages:
+      - libwebkit2gtk-4.0-dev
+      - build-essential
+      - curl
+      - wget
+      - libssl-dev
+      - libgtk-3-dev
+      - libayatana-appindicator3-dev
+      - librsvg2-dev
+    stage-packages:
+      - libwebkit2gtk-4.0-dev
+      - build-essential
+      - curl
+      - wget
+      - libssl-dev
+      - libgtk-3-dev
+      - libayatana-appindicator3-dev
+      - librsvg2-dev
 
 apps:
   tiny-beast-dictionary:
