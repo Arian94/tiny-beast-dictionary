@@ -1,0 +1,1 @@
+This app is built aiming to develop a free software for all common platforms. It's main focus is Linux and with the help of Tauri which works with JavaScript and Rust, this high perfomance application which is focused on free and vast dictionaries (thanks to Kaikki.org) has been published.

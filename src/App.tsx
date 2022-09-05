@@ -40,13 +40,13 @@ function App() {
   const isOverlappingReqEmitted = useRef(false);
   const [offlineDictsList, setOfflineDictsList] = useState<OfflineDictsList>(
     {
-      ar: { percentage: NOT_DOWNLOADED, volume: '429', name: "Arabic" },
-      en: { percentage: NOT_DOWNLOADED, volume: '1536', name: "English" },
-      fr: { percentage: NOT_DOWNLOADED, volume: '324', name: "French" },
-      de: { percentage: NOT_DOWNLOADED, volume: '685', name: "German" },
-      it: { percentage: NOT_DOWNLOADED, volume: '424', name: "Italian" },
-      fa: { percentage: NOT_DOWNLOADED, volume: '57', name: "Persian" },
-      es: { percentage: NOT_DOWNLOADED, volume: '617', name: "Spanish" },
+      ar: { percentage: NOT_DOWNLOADED, volume: '429 MB', name: "Arabic" },
+      en: { percentage: NOT_DOWNLOADED, volume: '1.5 GB', name: "English" },
+      fr: { percentage: NOT_DOWNLOADED, volume: '324 MB', name: "French" },
+      de: { percentage: NOT_DOWNLOADED, volume: '685 MB', name: "German" },
+      it: { percentage: NOT_DOWNLOADED, volume: '424 MB', name: "Italian" },
+      fa: { percentage: NOT_DOWNLOADED, volume: '57 MB', name: "Persian" },
+      es: { percentage: NOT_DOWNLOADED, volume: '617 MB', name: "Spanish" },
     }
   );
   let clipboardBuffer: string | null;

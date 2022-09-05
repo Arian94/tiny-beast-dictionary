@@ -61,7 +61,7 @@
         "icons/32x32.png",
         "icons/128x128.png"
       ],
-      "identifier": "com.dictionary",
+      "identifier": "com.tiny-beast-dictionary",
       "longDescription": "tiny app for online/offline dictionaries. it works using google translate api and downloads dictionaries from kaikki.org to be used offline.",
       "macOS": {
         "entitlements": null,
@@ -70,13 +70,12 @@
         "providerShortName": null,
         "signingIdentity": null
       },
-      "resources": [
-        "settings.json"
-      ],
+      "resources": ["../README.md"],
       "shortDescription": "tiny app for online/offline dictionaries",
       "targets": [
         "deb",
-        "msi"
+        "msi",
+        "app"
       ],
       "windows": {
         "certificateThumbprint": null,

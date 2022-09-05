@@ -67,7 +67,7 @@ export const Modal: React.FC<{
           const dlStatusIcon = dict.percentage === NOT_DOWNLOADED ? downloadIcon : dict.percentage === DOWNLOADED ? deleteIcon : cancelIcon;
           return (
             <div key={abbr} className={styles.dict}>
-              <span>{dict.name} ({dict.volume} MB)</span>
+              <span>{dict.name} ({dict.volume})</span>
               <div className={styles.download}>
                 {dict.percentage !== -1 && dict.percentage !== 100 && <span>{dict.percentage === 99 ? <h6>processing</h6> : `${dict.percentage}%`}</span>}
                 <button

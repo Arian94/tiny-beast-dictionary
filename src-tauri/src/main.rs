@@ -46,9 +46,12 @@ fn main() {
                     let window = app.get_window("main").unwrap();
                     window.once("new_config", |event| {
                         let payload = event.payload().unwrap();
-                        open_write_json_payload(&find_absolute_resource_path(SETTINGS_FILENAME), payload)
-                            .is_ok()
-                            .then(|| std::process::exit(0));
+                        open_write_json_payload(
+                            &find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), SETTINGS_FILENAME),
+                            payload,
+                        )
+                        .is_ok()
+                        .then(|| std::process::exit(0));
                     });
                     window.emit("quit", "quit button clicked").unwrap();
                 }
@@ -75,9 +78,10 @@ fn main() {
             let win_arc = Arc::new(Mutex::new(window.to_owned()));
             window.listen("new_config", move |event| {
                 let payload = event.payload().unwrap();
-                if let Err(e) =
-                    open_write_json_payload(&find_absolute_resource_path(SETTINGS_FILENAME), payload)
-                {
+                if let Err(e) = open_write_json_payload(
+                    &find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), SETTINGS_FILENAME),
+                    payload,
+                ) {
                     eprintln!("error in writing new config: {e}");
                 } else {
                     win_arc.lock().unwrap().emit("config_saved", "").unwrap();
@@ -85,7 +89,7 @@ fn main() {
             });
 
             match read_json_file::<HashMap<String, serde_json::Value, RandomState>>(
-                &find_absolute_resource_path(SETTINGS_FILENAME),
+                &find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), SETTINGS_FILENAME),
             ) {
                 Ok(config) => {
                     if config.get("x").is_some() {
@@ -221,7 +225,10 @@ async fn download_dict(abbr: &str, app_window: tauri::Window) -> Result<(), Stri
 
 #[tauri::command]
 async fn delete_dict(abbr: &str) -> Result<(), String> {
-    if let Err(e) = delete_json_file(&find_absolute_resource_path(&format!("{JSON_DIR}/{abbr}"))) {
+    if let Err(e) = delete_json_file(&find_absolute_path(
+        RESOURCE_PATH_BUF.to_path_buf(),
+        &format!("{JSON_DIR}/{abbr}"),
+    )) {
         return Err(e.to_string());
     }
     Ok(())
