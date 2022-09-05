@@ -88,26 +88,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c91f1f46651137be86f3a2b9a8359f9ab421d04d941c62b5982e1ca21113adf9"
 
 [[package]]
-name = "app"
-version = "0.1.0"
-dependencies = [
- "ahash",
- "fast_image_resize",
- "futures-util",
- "icns",
- "ico",
- "image",
- "lazy_static",
- "reqwest",
- "scraper",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tts_rust",
-]
-
-[[package]]
 name = "atk"
 version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1776,6 +1756,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "license"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fecbacf603ba0e91f1571a2caddc77cf7c1ef94bff5551ddc98b6131df3a7ed"
+dependencies = [
+ "reword",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "line-wrap"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2904,6 +2895,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "reword"
+version = "6.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fe87dc24d91d20b7bb04074fca244b0cbbf30d3259a7ede29a67dcc634f138e"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "ring"
 version = "0.16.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3758,6 +3758,27 @@ dependencies = [
  "js-sys",
  "libc",
  "num_threads",
+]
+
+[[package]]
+name = "tiny-beast-dictionary"
+version = "1.2.3"
+dependencies = [
+ "ahash",
+ "fast_image_resize",
+ "futures-util",
+ "icns",
+ "ico",
+ "image",
+ "lazy_static",
+ "license",
+ "reqwest",
+ "scraper",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tts_rust",
 ]
 
 [[package]]

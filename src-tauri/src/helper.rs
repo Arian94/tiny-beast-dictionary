@@ -9,7 +9,7 @@ use std::str::from_utf8;
 use std::sync::{mpsc, Arc, Mutex};
 use std::{collections::HashMap, fs::File, io::BufReader};
 use std::{fs, io};
-use tauri::{regex::Regex, async_runtime::block_on};
+use tauri::{async_runtime::block_on, regex::Regex};
 
 pub static JSON_DIR: &str = "json_dictionaries";
 pub static SETTINGS_FILENAME: &str = "settings";
@@ -267,13 +267,24 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     let incorrect_string = &*incorrect_string_arc.lock().unwrap();
     let correct_val = rectify_incorrect_string(incorrect_string.to_string(), abbr);
 
-    if fs::metadata(find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), &format!("{JSON_DIR}"))).is_err() {
-        fs::create_dir_all(find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(),&format!("{JSON_DIR}")))
-            .or(Err("error while creating nested directory.".to_string()))?;
+    if fs::metadata(find_absolute_path(
+        RESOURCE_PATH_BUF.to_path_buf(),
+        &format!("{JSON_DIR}"),
+    ))
+    .is_err()
+    {
+        fs::create_dir_all(find_absolute_path(
+            RESOURCE_PATH_BUF.to_path_buf(),
+            &format!("{JSON_DIR}"),
+        ))
+        .or(Err("error while creating nested directory.".to_string()))?;
     }
 
     create_write_json_file(
-        &find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), &format!("{JSON_DIR}/{abbr}")),
+        &find_absolute_path(
+            RESOURCE_PATH_BUF.to_path_buf(),
+            &format!("{JSON_DIR}/{abbr}"),
+        ),
         correct_val,
     )?;
     eprintln!("downloaded: {abbr}");
@@ -288,6 +299,8 @@ mod tests {
     use image::codecs::png::PngEncoder;
     use image::io::Reader as ImageReader;
     use image::{ColorType, ImageEncoder};
+    use license::{License, Gfdl1_3OrLater};
+    use std::io::Write;
     use std::{
         fs::File,
         io::{BufReader, BufWriter},
@@ -390,5 +403,12 @@ mod tests {
                 )
                 .unwrap();
         });
+    }
+
+    #[test]
+    fn add_license_works() {
+        let gfdl = Gfdl1_3OrLater.text().as_bytes();
+        let c = File::create("../LICENSE-GFDL").unwrap().write_all(gfdl);
+        assert_eq!(c.unwrap(), ());
     }
 }

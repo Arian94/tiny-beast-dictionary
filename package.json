@@ -1,8 +1,8 @@
 {
   "name": "tiny-beast-dictionary",
   "private": true,
-  "version": "0.0.0",
-  "license": "MIT",
+  "version": "1.2.3",
+  "license": "GFDL",
   "scripts": {
     "serve": "yarn tauri dev",
     "build_app": "yarn tauri build",

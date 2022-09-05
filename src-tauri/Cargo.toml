@@ -1,13 +1,13 @@
 [package]
 authors = ["arian pourarian <arianpourarian@gmail.com>"]
-default-run = "app"
+default-run = "tiny-beast-dictionary"
 description = "tiny app for online/offline dictionaries"
 edition = "2021"
-license = "MIT"
-name = "app"
-repository = ""
+license = "GFDL"
+name = "tiny-beast-dictionary"
+repository = "https://github.com/Arian94/tiny-beast-dictionary"
 rust-version = "1.57"
-version = "0.1.0"
+version = "1.2.3"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -38,3 +38,4 @@ fast_image_resize = "0.9.3"
 icns = "0.3.1"
 ico = "0.1.0"
 image = "0.24.2"
+license = "2.0.3"
