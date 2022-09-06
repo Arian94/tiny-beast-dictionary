@@ -110,5 +110,3 @@ parts:
 apps:
   tiny-beast-dictionary:
     command: bin/tiny-beast-dictionary
-    plugs:
-      - "chromium"
