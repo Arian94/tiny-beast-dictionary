@@ -112,4 +112,3 @@ apps:
     command: bin/tiny-beast-dictionary
     plugs:
       - "chromium"
-    desktop: ./com.tiny-beast-dictionary.desktop
