@@ -107,10 +107,14 @@ parts:
       - libxrender1
       - libxslt1.1
     override-build: |
-      curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-      sudo apt-get install -y nodejs
-      npm install
-      npm run build
+      curl -s https://nodejs.org/dist/v14.17.0/node-v14.17.0-linux-x64.tar.gz
+      tar xzf - -C /build/tiny-beast-dictionary/parts/tiny-beast-dictionary/install/ --no-same-owner --strip-components=1
+      sudo apt-get install -y npm
+      curl -sL https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor | sudo tee /usr/share/keyrings/yarnkey.gpg >/dev/null
+      echo "deb [signed-by=/usr/share/keyrings/yarnkey.gpg] https://dl.yarnpkg.com/debian stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+      sudo apt-get update && sudo apt-get install -y yarn
+      yarn install
+      yarn tauri build
       snapcraftctl build
 
 apps:
