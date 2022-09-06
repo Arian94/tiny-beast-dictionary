@@ -17,15 +17,8 @@ architectures:
   - i386
 
 parts:
-  load-front:
-    plugin: npm
-    npm-node-version: 14.17.0
-    source: .
-
   tiny-beast-dictionary:
     plugin: rust
-    after:
-      - load-front
     # See 'snapcraft plugins'
     source: .
     source-subdir: ./src-tauri
@@ -114,6 +107,8 @@ parts:
       - libxrender1
       - libxslt1.1
     override-build: |
+      curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+      sudo apt-get install -y nodejs
       npm install
       npm run build
       snapcraftctl build
@@ -121,3 +116,6 @@ parts:
 apps:
   tiny-beast-dictionary:
     command: bin/tiny-beast-dictionary
+    plugs:
+      - "chromium"
+    desktop: usr/share/applications/com.tiny-beast-dictionary.desktop
