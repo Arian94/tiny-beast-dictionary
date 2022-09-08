@@ -14,7 +14,10 @@ use google_translate::Translator;
 use helper::*;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::{
+    fs,
+    sync::{Arc, Mutex},
+};
 use tauri::{
     CustomMenuItem, Manager, PhysicalPosition, PhysicalSize, SystemTray, SystemTrayEvent,
     SystemTrayMenu, SystemTrayMenuItem,
@@ -47,7 +50,10 @@ fn main() {
                     window.once("new_config", |event| {
                         let payload = event.payload().unwrap();
                         open_write_json_payload(
-                            &find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), SETTINGS_FILENAME),
+                            &find_absolute_path(
+                                CACHE_PATH_WITH_IDENTIFIER.to_string(),
+                                SETTINGS_FILENAME,
+                            ),
                             payload,
                         )
                         .is_ok()
@@ -74,22 +80,34 @@ fn main() {
             _ => {}
         })
         .setup(|app| {
+            if fs::metadata(CACHE_PATH_WITH_IDENTIFIER.to_string()).is_err() {
+                fs::create_dir_all(CACHE_PATH_WITH_IDENTIFIER.to_string())
+                    .or(Err("error while creating base app directory.".to_string()))?;
+                println!(
+                    "base dir created: {}",
+                    CACHE_PATH_WITH_IDENTIFIER.to_string()
+                );
+            }
+
             let window = app.get_window("main").unwrap();
             let win_arc = Arc::new(Mutex::new(window.to_owned()));
             window.listen("new_config", move |event| {
                 let payload = event.payload().unwrap();
                 if let Err(e) = open_write_json_payload(
-                    &find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), SETTINGS_FILENAME),
+                    &find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), SETTINGS_FILENAME),
                     payload,
                 ) {
-                    eprintln!("error in writing new config: {e}");
+                    eprintln!(
+                        "error in writing new config at {} : {e}",
+                        CACHE_PATH_WITH_IDENTIFIER.to_string()
+                    );
                 } else {
                     win_arc.lock().unwrap().emit("config_saved", "").unwrap();
                 }
             });
 
             match read_json_file::<HashMap<String, serde_json::Value, RandomState>>(
-                &find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), SETTINGS_FILENAME),
+                &find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), SETTINGS_FILENAME),
             ) {
                 Ok(config) => {
                     if config.get("x").is_some() {
@@ -226,7 +244,7 @@ async fn download_dict(abbr: &str, app_window: tauri::Window) -> Result<(), Stri
 #[tauri::command]
 async fn delete_dict(abbr: &str) -> Result<(), String> {
     if let Err(e) = delete_json_file(&find_absolute_path(
-        RESOURCE_PATH_BUF.to_path_buf(),
+        CACHE_PATH_WITH_IDENTIFIER.to_string(),
         &format!("{JSON_DIR}/{abbr}"),
     )) {
         return Err(e.to_string());

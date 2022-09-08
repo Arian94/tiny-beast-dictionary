@@ -28,14 +28,17 @@ struct DictDowlonadStatus<'a> {
 
 lazy_static! {
     static ref JSON_REGEX: Regex = Regex::new(r#"(?m).*"word": "([^"]+)", "lang".*"#).unwrap();
-    pub static ref RESOURCE_PATH_BUF: PathBuf = tauri::api::path::resource_dir(tauri::generate_context!().package_info(), &tauri::Env::default()).unwrap();
-    pub static ref EN_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), &format!("{JSON_DIR}/en"))).unwrap();
-    pub static ref FR_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), &format!("{JSON_DIR}/fr"))).unwrap();
-    pub static ref DE_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), &format!("{JSON_DIR}/de"))).unwrap();
-    pub static ref ES_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), &format!("{JSON_DIR}/es"))).unwrap();
-    pub static ref IT_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), &format!("{JSON_DIR}/it"))).unwrap();
-    pub static ref FA_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), &format!("{JSON_DIR}/fa"))).unwrap();
-    pub static ref AR_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), &format!("{JSON_DIR}/ar"))).unwrap();
+    static ref RESOURCE_PATH_BUF: PathBuf = tauri::api::path::resource_dir(tauri::generate_context!().package_info(), &tauri::Env::default()).unwrap();
+    static ref IDENTIFIER: String = format!("{}", tauri::generate_context!().config().tauri.bundle.identifier);
+    static ref CACHE_PATH_BUF: PathBuf = tauri::api::path::cache_dir().unwrap();
+    pub static ref CACHE_PATH_WITH_IDENTIFIER: String = format!("{}/{}", CACHE_PATH_BUF.to_str().unwrap(), IDENTIFIER.to_string());
+    pub static ref EN_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/en"))).unwrap();
+    pub static ref FR_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/fr"))).unwrap();
+    pub static ref DE_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/de"))).unwrap();
+    pub static ref ES_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/es"))).unwrap();
+    pub static ref IT_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/it"))).unwrap();
+    pub static ref FA_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/fa"))).unwrap();
+    pub static ref AR_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/ar"))).unwrap();
     pub static ref OFFLINE_DICTS: HashMap<&'static str, OfflineDict<'static>> = HashMap::from([
         (
             "en",
@@ -98,8 +101,8 @@ lazy_static! {
     ]);
 }
 
-pub fn find_absolute_path(path_buf: PathBuf, path: &str) -> String {
-    let absolute_path = format!("{}/{}", path_buf.to_str().unwrap(), path);
+pub fn find_absolute_path(base_path: String, path: &str) -> String {
+    let absolute_path = format!("{}/{}", base_path, path);
     absolute_path
 }
 
@@ -268,13 +271,13 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     let correct_val = rectify_incorrect_string(incorrect_string.to_string(), abbr);
 
     if fs::metadata(find_absolute_path(
-        RESOURCE_PATH_BUF.to_path_buf(),
+        CACHE_PATH_WITH_IDENTIFIER.to_string(),
         &format!("{JSON_DIR}"),
     ))
     .is_err()
     {
         fs::create_dir_all(find_absolute_path(
-            RESOURCE_PATH_BUF.to_path_buf(),
+            CACHE_PATH_WITH_IDENTIFIER.to_string(),
             &format!("{JSON_DIR}"),
         ))
         .or(Err("error while creating nested directory.".to_string()))?;
@@ -282,7 +285,7 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
 
     create_write_json_file(
         &find_absolute_path(
-            RESOURCE_PATH_BUF.to_path_buf(),
+            CACHE_PATH_WITH_IDENTIFIER.to_string(),
             &format!("{JSON_DIR}/{abbr}"),
         ),
         correct_val,
@@ -299,7 +302,7 @@ mod tests {
     use image::codecs::png::PngEncoder;
     use image::io::Reader as ImageReader;
     use image::{ColorType, ImageEncoder};
-    use license::{License, Gfdl1_3OrLater};
+    use license::{Gfdl1_3OrLater, License};
     use std::io::Write;
     use std::{
         fs::File,
