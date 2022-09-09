@@ -9,7 +9,7 @@
   },
   "package": {
     "productName": "Tiny Beast Dictionary",
-    "version": "1.2.3"
+    "version": "1.2.4"
   },
   "tauri": {
     "systemTray": {

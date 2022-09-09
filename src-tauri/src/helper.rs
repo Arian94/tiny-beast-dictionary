@@ -4,11 +4,12 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
 use std::error::Error;
+use std::io::Read;
 use std::path::PathBuf;
 use std::str::from_utf8;
 use std::sync::{mpsc, Arc, Mutex};
-use std::{collections::HashMap, fs::File, io::BufReader};
-use std::{fs, io};
+use std::{collections::HashMap, fs::File};
+use std::{fs, io, thread};
 use tauri::{async_runtime::block_on, regex::Regex};
 
 pub static JSON_DIR: &str = "json_dictionaries";
@@ -32,13 +33,13 @@ lazy_static! {
     static ref IDENTIFIER: String = format!("{}", tauri::generate_context!().config().tauri.bundle.identifier);
     static ref CACHE_PATH_BUF: PathBuf = tauri::api::path::cache_dir().unwrap();
     pub static ref CACHE_PATH_WITH_IDENTIFIER: String = format!("{}/{}", CACHE_PATH_BUF.to_str().unwrap(), IDENTIFIER.to_string());
-    pub static ref EN_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/en"))).unwrap();
-    pub static ref FR_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/fr"))).unwrap();
-    pub static ref DE_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/de"))).unwrap();
-    pub static ref ES_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/es"))).unwrap();
-    pub static ref IT_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/it"))).unwrap();
-    pub static ref FA_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/fa"))).unwrap();
-    pub static ref AR_DICT: HashMap<String, Value, RandomState> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/ar"))).unwrap();
+    pub static ref EN_DICT: Result<HashMap<String, Value, RandomState>, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/en"))).or(Err(format!("en dict not found")));
+    pub static ref FR_DICT: Result<HashMap<String, Value, RandomState>, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/fr"))).or(Err(format!("fr dict not found")));
+    pub static ref DE_DICT: Result<HashMap<String, Value, RandomState>, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/de"))).or(Err(format!("de dict not found")));
+    pub static ref ES_DICT: Result<HashMap<String, Value, RandomState>, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/es"))).or(Err(format!("es dict not found")));
+    pub static ref IT_DICT: Result<HashMap<String, Value, RandomState>, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/it"))).or(Err(format!("it dict not found")));
+    pub static ref FA_DICT: Result<HashMap<String, Value, RandomState>, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/fa"))).or(Err(format!("fa dict not found")));
+    pub static ref AR_DICT: Result<HashMap<String, Value, RandomState>, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/ar"))).or(Err(format!("ar dict not found")));
     pub static ref OFFLINE_DICTS: HashMap<&'static str, OfflineDict<'static>> = HashMap::from([
         (
             "en",
@@ -62,7 +63,7 @@ lazy_static! {
             "de",
             OfflineDict {
                 url: "https://kaikki.org/dictionary/German/kaikki.org-dictionary-German.json",
-                length_mb: 685,
+                length_mb: 686,
                 name: "German"
             }
         ),
@@ -86,7 +87,7 @@ lazy_static! {
             "fa",
             OfflineDict {
                 url: "https://kaikki.org/dictionary/Persian/kaikki.org-dictionary-Persian.json",
-                length_mb: 57,
+                length_mb: 54,
                 name: "Persian"
             }
         ),
@@ -111,9 +112,10 @@ where
     T: DeserializeOwned + std::fmt::Debug,
 {
     let name = format!("{path}.json");
-    let file = File::open(name)?;
-    let reader = BufReader::new(file);
-    let json_file = serde_json::from_reader(reader)?;
+    let mut file = File::open(name)?;
+    let mut s = String::new();
+    file.read_to_string(&mut s).unwrap();
+    let json_file = serde_json::from_str(&s)?;
     Ok(json_file)
 }
 
@@ -142,24 +144,66 @@ pub fn open_write_json_payload(filename: &str, payload: &str) -> Result<(), Stri
 }
 
 fn rectify_incorrect_string(incorrect_string: String, abbr: &str) -> Value {
-    let mut correct_val = String::new();
-    let name = OFFLINE_DICTS.get(&abbr).unwrap().name;
+    let correct_string_arc = Arc::new(Mutex::new(String::new()));
+    let name = OFFLINE_DICTS
+        .get(&abbr)
+        .unwrap_or(&OfflineDict {
+            url: "",
+            length_mb: 0,
+            name: "unknown",
+        })
+        .name;
 
-    JSON_REGEX.captures_iter(&incorrect_string).for_each(|c| {
-        let val = &c[0];
-        let k = &c[1];
-        let to_be_removed =
-            format!("\"word\": \"{k}\", \"lang\": \"{name}\", \"lang_code\": \"{abbr}\",");
-        let mut removed_val = val.replace(&to_be_removed, "");
-        removed_val.push(',');
-        let res = format!("\"{k}\":{removed_val}");
-        correct_val.push_str(&res);
-    });
+    let mut vector_of_lines = incorrect_string
+        .split("\n")
+        .map(|s| s.to_string())
+        .collect::<Vec<String>>();
+    vector_of_lines.pop();
 
-    correct_val.pop(); // in the loop, an additional ',' will be pushed which must be removed to make it a valid json.
-    correct_val.insert(0, '{');
-    correct_val.push('}');
-    let correct_val = serde_json::from_str::<Value>(&correct_val).unwrap();
+    let l = vector_of_lines.len();
+    let slot = l / 4;
+
+    let lines_1 = vector_of_lines.get(0..slot).unwrap().join("\n"); //* join by \n so that the regex will work correclty. */
+    let lines_2 = vector_of_lines.get(slot..2 * slot).unwrap().join("\n");
+    let lines_3 = vector_of_lines.get(2 * slot..3 * slot).unwrap().join("\n");
+    let lines_4 = vector_of_lines.get(3 * slot..l).unwrap().join("\n");
+
+    let all_four = vec![lines_1, lines_2, lines_3, lines_4];
+
+    let mut threads = Vec::new();
+    for lines in all_four {
+        let owned_abbr = abbr.to_owned();
+        let cln = correct_string_arc.clone();
+
+        let thread = thread::spawn(move || {
+            let mut correct_seg_string = String::new();
+            let mut matches = JSON_REGEX.captures_iter(&lines);
+            while let Some(c) = matches.next() {
+                let removed_val = &c[0];
+                let word = &c[1];
+                let to_be_removed = format!(
+                    "\"word\": \"{word}\", \"lang\": \"{name}\", \"lang_code\": \"{owned_abbr}\","
+                );
+                let removed_val = removed_val.replace(&to_be_removed, "");
+                let res = format!("\"{word}\":{removed_val},");
+                correct_seg_string.push_str(&res);
+            }
+            let mut correct_string = cln.lock().unwrap();
+            correct_string.push_str(&correct_seg_string);
+        });
+
+        threads.push(thread);
+    }
+
+    for thread in threads {
+        thread.join().unwrap();
+    }
+
+    let mut correct_string = correct_string_arc.lock().unwrap();
+    correct_string.pop(); // in the loop, an additional ',' will be pushed which must be removed to make it a valid json.
+    correct_string.insert(0, '{');
+    correct_string.push('}');
+    let correct_val = serde_json::from_str::<Value>(&correct_string).unwrap();
     correct_val
 }
 
@@ -177,6 +221,8 @@ fn create_write_json_file(filename: &str, file_value: Value) -> Result<(), Strin
     }
 }
 
+/// Neglecting the time it takes to download a dictionary, it would take 558 seconds (9 min) to rectify a 320 MB file
+/// and write it to the storage (6 min for rectifying, 3 min for writing).
 pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), String> {
     let once_abbr = abbr.to_owned();
     let (t_once_x, r_once_x) = mpsc::channel::<bool>();
@@ -230,8 +276,8 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     });
     let now = std::time::Instant::now();
     let mut dur = std::time::Duration::new(2, 0);
-    let emit_dl_status = |p: i8, print_msg: &str| -> Result<(), String> {
-        eprintln!("{print_msg} {p}%");
+    let emit_dl_status = |p: i8, _print_msg: &str| -> Result<(), String> {
+        // eprintln!("{print_msg} {p}%");
         window
             .emit(
                 "downloading",
@@ -296,14 +342,14 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
 
 #[cfg(test)]
 mod tests {
-    use super::download_dict;
+    use super::{create_write_json_file, download_dict, rectify_incorrect_string};
     use fast_image_resize as fr;
     use icns::{IconFamily, Image};
     use image::codecs::png::PngEncoder;
     use image::io::Reader as ImageReader;
     use image::{ColorType, ImageEncoder};
     use license::{Gfdl1_3OrLater, License};
-    use std::io::Write;
+    use std::io::{Read, Write};
     use std::{
         fs::File,
         io::{BufReader, BufWriter},
@@ -322,6 +368,25 @@ mod tests {
             .unwrap();
         let d = block_on(download_dict("fr", g)).unwrap();
         assert_eq!((), d);
+    }
+
+    #[test]
+    fn benchmark_rectification_writing_dict() {
+        println!("starting");
+        let name = format!(
+            "{}/incorrect_fr.json",
+            tauri::api::path::download_dir().unwrap().to_str().unwrap()
+        );
+        let mut file = File::open(name).unwrap();
+        let mut incorrect_string = String::new();
+        file.read_to_string(&mut incorrect_string).unwrap();
+        println!("file is stringified");
+
+        let now = std::time::Instant::now();
+        let corr = rectify_incorrect_string(incorrect_string, "fr");
+        println!("file is rectified after {} seconds", now.elapsed().as_secs());
+        create_write_json_file("rectified_test_fr", corr).unwrap();
+        println!("all done after {} seconds", now.elapsed().as_secs());
     }
 
     #[test]

@@ -133,7 +133,7 @@ fn main() {
 }
 
 #[tauri::command]
-fn offline_translate(word: &str, lang: &str) -> Result<Value, &'static str> {
+async fn offline_translate(word: &str, lang: &str) -> Result<Value, String> {
     let selected_lang;
 
     match lang {
@@ -144,14 +144,14 @@ fn offline_translate(word: &str, lang: &str) -> Result<Value, &'static str> {
         "it" => selected_lang = IT_DICT.to_owned(),
         "fa" => selected_lang = FA_DICT.to_owned(),
         "ar" => selected_lang = AR_DICT.to_owned(),
-        _ => return Err("language not found"),
+        _ => return Err("language not found".to_string()),
     }
 
-    if let Some(found) = selected_lang.get(word) {
+    if let Some(found) = selected_lang?.get(word) {
         let val = found.to_owned();
         Ok(val)
     } else {
-        Err("not found")
+        Err("not found".to_string())
     }
 }
 

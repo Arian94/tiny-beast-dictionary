@@ -3762,7 +3762,7 @@ dependencies = [
 
 [[package]]
 name = "tiny-beast-dictionary"
-version = "1.2.3"
+version = "1.2.4"
 dependencies = [
  "ahash",
  "fast_image_resize",
