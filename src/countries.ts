@@ -1,6 +1,6 @@
 
 export const offlineDictionaries = {
-    English: "en",
+    // English: "en",
     French: "fr",
     German: "de",
     Spanish: "es",
@@ -23,7 +23,7 @@ export const onlineDictionaries = {
     Czech: "cs",
     Danish: "da",
     Dutch: "nl",
-    English: offlineDictionaries.English,
+    English: "en", // offlineDictionaries.English,
     Esperanto: "eo",
     Estonian: "et",
     Filipino: "tl",

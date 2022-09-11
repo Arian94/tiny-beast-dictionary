@@ -1,16 +1,18 @@
-use ahash::RandomState;
 use futures_util::StreamExt;
+use ijson::IObject;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use serde_json::Value;
 use std::error::Error;
-use std::io::Read;
-use std::path::PathBuf;
-use std::str::from_utf8;
-use std::sync::{mpsc, Arc, Mutex};
-use std::{collections::HashMap, fs::File};
-use std::{fs, io, thread};
+use std::{
+    collections::HashMap,
+    fs::{self, File},
+    io::{self, Read, Write},
+    path::PathBuf,
+    sync::{mpsc, Arc, Mutex},
+    thread,
+};
 use tauri::{async_runtime::block_on, regex::Regex};
+use xz::read::XzDecoder;
 
 pub static JSON_DIR: &str = "json_dictionaries";
 pub static SETTINGS_FILENAME: &str = "settings";
@@ -33,69 +35,68 @@ lazy_static! {
     static ref IDENTIFIER: String = format!("{}", tauri::generate_context!().config().tauri.bundle.identifier);
     static ref CACHE_PATH_BUF: PathBuf = tauri::api::path::cache_dir().unwrap();
     pub static ref CACHE_PATH_WITH_IDENTIFIER: String = format!("{}/{}", CACHE_PATH_BUF.to_str().unwrap(), IDENTIFIER.to_string());
-    pub static ref EN_DICT: Result<HashMap<String, Value, RandomState>, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/en"))).or(Err(format!("en dict not found")));
-    pub static ref FR_DICT: Result<HashMap<String, Value, RandomState>, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/fr"))).or(Err(format!("fr dict not found")));
-    pub static ref DE_DICT: Result<HashMap<String, Value, RandomState>, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/de"))).or(Err(format!("de dict not found")));
-    pub static ref ES_DICT: Result<HashMap<String, Value, RandomState>, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/es"))).or(Err(format!("es dict not found")));
-    pub static ref IT_DICT: Result<HashMap<String, Value, RandomState>, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/it"))).or(Err(format!("it dict not found")));
-    pub static ref FA_DICT: Result<HashMap<String, Value, RandomState>, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/fa"))).or(Err(format!("fa dict not found")));
-    pub static ref AR_DICT: Result<HashMap<String, Value, RandomState>, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/ar"))).or(Err(format!("ar dict not found")));
+    // pub static ref EN_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/en"))).or(Err(format!("en dict not found")));
+    pub static ref FR_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/fr"))).or(Err(format!("fr dict not found")));
+    pub static ref DE_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/de"))).or(Err(format!("de dict not found")));
+    pub static ref ES_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/es"))).or(Err(format!("es dict not found")));
+    pub static ref IT_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/it"))).or(Err(format!("it dict not found")));
+    pub static ref FA_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/fa"))).or(Err(format!("fa dict not found")));
+    pub static ref AR_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/ar"))).or(Err(format!("ar dict not found")));
     pub static ref OFFLINE_DICTS: HashMap<&'static str, OfflineDict<'static>> = HashMap::from([
-        (
-            "en",
-            OfflineDict {
-                url: "https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.json",
-                length_mb: 1536,
-                name: "English"
-            }
-        ),
+        // (
+        //     "en",
+        //     OfflineDict {
+        //         url: "https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.json",
+        //         length_mb: 1536,
+        //         name: "English"
+        //     }
+        // ),
         (
             "fr",
             OfflineDict {
-                url: "https://kaikki.org/dictionary/French/kaikki.org-dictionary-French.json",
-                // url: "https://kaikki.org/dictionary/French/by-pos/pron/kaikki.org-dictionary-French-by-pos-pron.json", // 300kb
+                url: "https://drive.google.com/uc?export=download&id=11lUFTvd7fCKlHhxU3buxgAXslab-fiDC",
                 // url: "https://kaikki.org/dictionary/French/by-pos/adv/kaikki.org-dictionary-French-by-pos-adv.json", //4mb
-                length_mb: 324,
+                length_mb: 25,
                 name: "French"
             }
         ),
         (
             "de",
             OfflineDict {
-                url: "https://kaikki.org/dictionary/German/kaikki.org-dictionary-German.json",
-                length_mb: 686,
+                url: "https://drive.google.com/uc?export=download&id=1bf6JlXWCBkq1ieTAivPmtj2aicyCrxHc",
+                length_mb: 41,
                 name: "German"
             }
         ),
         (
             "es",
             OfflineDict {
-                url: "https://kaikki.org/dictionary/Spanish/kaikki.org-dictionary-Spanish.json",
-                length_mb: 617,
+                url: "https://drive.google.com/uc?export=download&id=1wHNS7BmbygZfitql5cYmBffweB9X0Iz9",
+                length_mb: 39,
                 name: "Spanish"
             }
         ),
         (
             "it",
             OfflineDict {
-                url: "https://kaikki.org/dictionary/Italian/kaikki.org-dictionary-Italian.json",
-                length_mb: 424,
+                url: "https://drive.google.com/uc?export=download&id=14urD7NVf-3CjKUsjwoaBFoRHOheohC4A",
+                length_mb: 32,
                 name: "Italian"
             }
         ),
         (
             "fa",
             OfflineDict {
-                url: "https://kaikki.org/dictionary/Persian/kaikki.org-dictionary-Persian.json",
-                length_mb: 54,
+                url: "https://drive.google.com/uc?export=download&id=1YWVECa-0YyMkk8LwlLuBr5aoQu_WzqnX",
+                length_mb: 3,
                 name: "Persian"
             }
         ),
         (
             "ar",
             OfflineDict {
-                url: "https://kaikki.org/dictionary/Arabic/kaikki.org-dictionary-Arabic.json",
-                length_mb: 429,
+                url: "https://drive.google.com/uc?export=download&id=1H6cGUgs2mOLIcO1RSowVDDeFAju1KuFn",
+                length_mb: 20,
                 name: "Arabic"
             }
         )
@@ -125,9 +126,12 @@ pub fn delete_json_file(path: &str) -> io::Result<()> {
     Ok(())
 }
 
-pub fn open_write_json_payload(filename: &str, payload: &str) -> Result<(), String> {
+pub fn open_write_json_payload<T>(filename: &str, payload: &str) -> Result<(), String>
+where
+    T: Serialize + DeserializeOwned + std::fmt::Debug,
+{
     let name = format!("{filename}.json");
-    let config_value = serde_json::from_str::<Value>(payload).unwrap();
+    let config_value = serde_json::from_str::<T>(payload).unwrap();
 
     match File::options().write(true).truncate(true).open(&name) {
         Ok(file) => {
@@ -143,8 +147,12 @@ pub fn open_write_json_payload(filename: &str, payload: &str) -> Result<(), Stri
     }
 }
 
-fn rectify_incorrect_string(incorrect_string: String, abbr: &str) -> Value {
-    let correct_string_arc = Arc::new(Mutex::new(String::new()));
+fn rectify_incorrect_string(
+    incorrect_string: &String,
+    abbr: &str,
+    file_path: &str,
+) -> Result<(), Box<dyn Error>> {
+    let file_path = format!("{file_path}.json");
     let name = OFFLINE_DICTS
         .get(&abbr)
         .unwrap_or(&OfflineDict {
@@ -154,14 +162,20 @@ fn rectify_incorrect_string(incorrect_string: String, abbr: &str) -> Value {
         })
         .name;
 
-    let mut vector_of_lines = incorrect_string
-        .split("\n")
-        .map(|s| s.to_string())
-        .collect::<Vec<String>>();
+    let dict_file = File::options()
+        .create(true)
+        .append(true)
+        .open(&file_path)
+        .unwrap();
+    let dict_file_arc = Arc::new(Mutex::new(dict_file));
+    let counter_arc = Arc::new(Mutex::new(0));
+
+    let mut vector_of_lines = incorrect_string.split("\n").collect::<Vec<&str>>();
     vector_of_lines.pop();
 
     let l = vector_of_lines.len();
-    let slot = l / 4;
+    let number_of_threads = 4;
+    let slot = l / number_of_threads;
 
     let lines_1 = vector_of_lines.get(0..slot).unwrap().join("\n"); //* join by \n so that the regex will work correclty. */
     let lines_2 = vector_of_lines.get(slot..2 * slot).unwrap().join("\n");
@@ -172,42 +186,58 @@ fn rectify_incorrect_string(incorrect_string: String, abbr: &str) -> Value {
 
     let mut threads = Vec::new();
     for lines in all_four {
-        let owned_abbr = abbr.to_owned();
-        let cln = correct_string_arc.clone();
+        let abbr = abbr.to_owned();
+        let dict_arc_clone = dict_file_arc.clone();
+        let counter_arc_clone = counter_arc.clone();
 
-        let thread = thread::spawn(move || {
+        let thread = thread::spawn(move || -> Result<(), &str> {
             let mut correct_seg_string = String::new();
             let mut matches = JSON_REGEX.captures_iter(&lines);
             while let Some(c) = matches.next() {
                 let removed_val = &c[0];
                 let word = &c[1];
                 let to_be_removed = format!(
-                    "\"word\": \"{word}\", \"lang\": \"{name}\", \"lang_code\": \"{owned_abbr}\","
+                    "\"word\": \"{word}\", \"lang\": \"{name}\", \"lang_code\": \"{abbr}\","
                 );
                 let removed_val = removed_val.replace(&to_be_removed, "");
                 let res = format!("\"{word}\":{removed_val},");
                 correct_seg_string.push_str(&res);
             }
-            let mut correct_string = cln.lock().unwrap();
-            correct_string.push_str(&correct_seg_string);
-        });
 
+            if let Ok(file) = dict_arc_clone.lock().as_mut() {
+                if let Ok(mut counter) = counter_arc_clone.lock() {
+                    *counter += 1;
+                    if *counter == 1 {
+                        correct_seg_string.insert(0, '{');
+                    }
+                    if *counter == number_of_threads {
+                        correct_seg_string.pop(); // pop last comma which is extra.
+                        correct_seg_string.push('}');
+                    }
+                } else {
+                    return Err("error in locking counter");
+                }
+                file.write_all(correct_seg_string.as_bytes())
+                    .or(Err("error in writing chunk"))?;
+                Ok(())
+            } else {
+                Err("error in locking file")
+            }
+        });
         threads.push(thread);
     }
 
     for thread in threads {
-        thread.join().unwrap();
+        thread.join().unwrap().unwrap();
     }
 
-    let mut correct_string = correct_string_arc.lock().unwrap();
-    correct_string.pop(); // in the loop, an additional ',' will be pushed which must be removed to make it a valid json.
-    correct_string.insert(0, '{');
-    correct_string.push('}');
-    let correct_val = serde_json::from_str::<Value>(&correct_string).unwrap();
-    correct_val
+    Ok(())
 }
 
-fn create_write_json_file(filename: &str, file_value: Value) -> Result<(), String> {
+fn create_write_json_file<T>(filename: &str, file_value: T) -> Result<(), String>
+where
+    T: Serialize + DeserializeOwned + std::fmt::Debug,
+{
     let name = format!("{filename}.json");
     match File::create(name) {
         Ok(file) => {
@@ -221,8 +251,8 @@ fn create_write_json_file(filename: &str, file_value: Value) -> Result<(), Strin
     }
 }
 
-/// Neglecting the time it takes to download a dictionary, it would take 558 seconds (9 min) to rectify a 320 MB file
-/// and write it to the storage (6 min for rectifying, 3 min for writing).
+/// Neglecting the time it takes to download a dictionary, in devmode it would take 340 seconds (< 6 min) to rectify a 320 MB file
+/// and write it to the storage.
 pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), String> {
     let once_abbr = abbr.to_owned();
     let (t_once_x, r_once_x) = mpsc::channel::<bool>();
@@ -243,31 +273,35 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
         .unwrap_or(value.length_mb * 1024 * 1024);
     let mut stream = res.bytes_stream();
     let (tx, rx) = mpsc::channel::<i8>();
-    let incorrect_string_arc = Arc::new(Mutex::new(String::new()));
-    let incorrect_str_arc_clone = Arc::clone(&incorrect_string_arc);
-    std::thread::spawn::<_, Result<(), String>>(move || {
+    let tarxz_path = format!("{}/{}.tar.xz", CACHE_PATH_WITH_IDENTIFIER.to_string(), abbr);
+    let tarxz_dict_file = File::options()
+        .create(true)
+        .append(true)
+        .open(&tarxz_path)
+        .unwrap();
+    let tarxz_arc = Arc::new(Mutex::new(tarxz_dict_file));
+    let tarxz_arc_clone = Arc::clone(&tarxz_arc);
+    std::thread::spawn::<_, Result<(), &str>>(move || {
         let mut downloaded: u64 = 0;
         'blocking_while: while let Some(item) = block_on(stream.next()) {
-            match r_once_x.try_recv() {
-                Ok(cancel_dl) => {
-                    if cancel_dl {
-                        win_arc.lock().unwrap().unlisten(ev_han);
-                        tx.send(-1)
-                            .or(Err("error in sending cancel message".to_string()))?;
-                        break 'blocking_while;
-                    }
+            if let Ok(cancel_dl) = r_once_x.try_recv() {
+                if cancel_dl {
+                    win_arc.lock().unwrap().unlisten(ev_han);
+                    tx.send(-1).or(Err("error in sending cancel message"))?;
+                    break 'blocking_while;
                 }
-                _ => {}
             }
-
-            let chunk = item.or(Err(format!("error while downloading file")))?;
-            let mut incorrect_string = incorrect_str_arc_clone.lock().unwrap();
-            incorrect_string.push_str(from_utf8(&chunk).or(Err(format!("invalid utf8 char")))?);
+            let chunk = item.or(Err("error while downloading file"))?;
+            if let Ok(file) = tarxz_arc_clone.lock().as_mut() {
+                file.write_all(&chunk).or(Err("error in writing chunk"))?
+            } else {
+                return Err("error in locking zip file");
+            }
             let len = chunk.len() as u64;
             let new_percentage = (downloaded + len) * 100 / total_size;
             downloaded += len;
             tx.send(new_percentage as i8)
-                .or(Err(format!("error in sending message")))?;
+                .or(Err("error in sending message"))?;
             if new_percentage == 100 {
                 break 'blocking_while;
             }
@@ -277,7 +311,7 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     let now = std::time::Instant::now();
     let mut dur = std::time::Duration::new(2, 0);
     let emit_dl_status = |p: i8, _print_msg: &str| -> Result<(), String> {
-        // eprintln!("{print_msg} {p}%");
+        // eprintln!("{_print_msg} {p}%");
         window
             .emit(
                 "downloading",
@@ -286,7 +320,7 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
                     percentage: p,
                 },
             )
-            .or(Err(format!("error in emitting payload")))?;
+            .or(Err("error in emitting payload"))?;
         Ok(())
     };
 
@@ -305,7 +339,7 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
             Err(e) => {
                 eprintln!("error: {e}");
                 if !e.to_string().contains("closed channel") {
-                    return Err(format!("something went wrong"));
+                    return Err("something went wrong".to_string());
                 }
                 emit_dl_status(99, &format!("wait {abbr}")).unwrap();
                 break 'state_loop;
@@ -313,36 +347,32 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
         }
     }
 
-    let incorrect_string = &*incorrect_string_arc.lock().unwrap();
-    let correct_val = rectify_incorrect_string(incorrect_string.to_string(), abbr);
-
-    if fs::metadata(find_absolute_path(
-        CACHE_PATH_WITH_IDENTIFIER.to_string(),
-        &format!("{JSON_DIR}"),
-    ))
-    .is_err()
-    {
-        fs::create_dir_all(find_absolute_path(
-            CACHE_PATH_WITH_IDENTIFIER.to_string(),
-            &format!("{JSON_DIR}"),
-        ))
-        .or(Err("error while creating nested directory.".to_string()))?;
+    let mut abs_json_dir = find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), JSON_DIR);
+    if fs::metadata(&abs_json_dir).is_err() {
+        fs::create_dir_all(&abs_json_dir)
+            .or(Err("error while creating nested directory.".to_string()))?;
     }
-
-    create_write_json_file(
-        &find_absolute_path(
-            CACHE_PATH_WITH_IDENTIFIER.to_string(),
-            &format!("{JSON_DIR}/{abbr}"),
-        ),
-        correct_val,
-    )?;
+    let file = File::open(&tarxz_path).unwrap();
+    let decompressor = XzDecoder::new(file);
+    tar::Archive::new(decompressor)
+        .unpack(&abs_json_dir)
+        .or(Err("error in unpacking".to_string()))?;
+    let mut unpacked_file = File::open(format!("{abs_json_dir}/incorrect_{abbr}.json"))
+        .or(Err("error in reading unpacked file"))?;
+    let mut contents = String::new();
+    unpacked_file.read_to_string(&mut contents).unwrap();
+    abs_json_dir.push_str(&format!("/{abbr}"));
+    if let Err(e) = rectify_incorrect_string(&contents, abbr, &abs_json_dir) {
+        return Err(e.to_string());
+    }
+    fs::remove_file(tarxz_path).or(Err("error in deleting zip file".to_string()))?;
     eprintln!("downloaded: {abbr}");
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{create_write_json_file, download_dict, rectify_incorrect_string};
+    use super::{download_dict, rectify_incorrect_string};
     use fast_image_resize as fr;
     use icns::{IconFamily, Image};
     use image::codecs::png::PngEncoder;
@@ -357,6 +387,18 @@ mod tests {
     };
     use tauri::async_runtime::block_on;
     use tauri::Manager;
+    use xz::read::XzDecoder;
+
+    #[test]
+    fn extract_zip_works() {
+        let name = format!(
+            "{}/incorrect_fa.tar.xz",
+            tauri::api::path::download_dir().unwrap().to_str().unwrap()
+        );
+        let tarxz = File::open(name).unwrap();
+        let decompressor = XzDecoder::new(tarxz);
+        tar::Archive::new(decompressor).unpack(".").unwrap();
+    }
 
     #[test]
     fn download_dict_works() {
@@ -382,11 +424,9 @@ mod tests {
         file.read_to_string(&mut incorrect_string).unwrap();
         println!("file is stringified");
 
-        let now = std::time::Instant::now();
-        let corr = rectify_incorrect_string(incorrect_string, "fr");
-        println!("file is rectified after {} seconds", now.elapsed().as_secs());
-        create_write_json_file("rectified_test_fr", corr).unwrap();
-        println!("all done after {} seconds", now.elapsed().as_secs());
+        let corr =
+            rectify_incorrect_string(&mut incorrect_string, "fr", "rectified_test_fr").unwrap();
+        assert_eq!((), corr);
     }
 
     #[test]
@@ -480,3 +520,63 @@ mod tests {
         assert_eq!(c.unwrap(), ());
     }
 }
+
+// #[derive(Debug, Clone)]
+// struct EtymologyTemplate {
+//     name: String,
+//     expansion: String,
+// }
+
+// #[derive(Debug, Clone)]
+// struct Category {
+//     name: Option<String>,
+// }
+
+// #[derive(Debug, Clone)]
+// struct FormOf {
+//     word: String,
+// }
+
+// #[derive(Debug, Clone)]
+// struct Example {
+//     text: String,
+//     r#ref: String,
+//     english: Option<String>,
+//     r#type: String,
+// }
+
+// #[derive(Debug, Clone)]
+// struct Sense {
+//     categories: Vec<Category>,
+//     glosses: Vec<String>,
+//     tags: Option<Vec<String>>,
+//     form_of: Option<FormOf>,
+//     examples: Option<Vec<Example>>,
+// }
+
+// #[derive(Debug, Clone)]
+// struct Forms {
+//     form: String,
+//     tags: Vec<String>,
+// }
+
+// #[derive(Debug, Clone)]
+// struct Sound {
+//     ipa: String,
+//     tags: Option<Vec<String>>,
+//     homophone: Option<String>,
+// }
+
+// #[derive(Debug, Clone)]
+// pub struct OfflineTranslation {
+//     etymology_text: Option<String>,
+//     etymology_templates: Option<Vec<EtymologyTemplate>>,
+//     senses: Vec<Sense>,
+//     pos: String,
+//     related: Vec<FormOf>,
+//     forms: Option<Forms>,
+//     sounds: Vec<Sound>,
+//     lang: String,
+//     lang_code: String,
+//     wikipedia: Option<Vec<String>>,
+// }

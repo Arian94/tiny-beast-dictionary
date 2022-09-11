@@ -55,6 +55,16 @@
         padding-inline: 10px;
         font-size: 14px;
 
+        .title {
+            margin-block-end: 8px;
+
+            small {
+                display: block;
+                font-weight: bold;
+                color: aquamarine;
+            }
+        }
+
         .scroller {
             height: 45vh;
             padding: 2px;

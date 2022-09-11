@@ -9,11 +9,9 @@ extern crate lazy_static;
 mod google_translate;
 mod helper;
 
-use ahash::RandomState;
 use google_translate::Translator;
 use helper::*;
-use serde_json::Value;
-use std::collections::HashMap;
+use ijson::IValue;
 use std::{
     fs,
     sync::{Arc, Mutex},
@@ -49,7 +47,7 @@ fn main() {
                     let window = app.get_window("main").unwrap();
                     window.once("new_config", |event| {
                         let payload = event.payload().unwrap();
-                        open_write_json_payload(
+                        open_write_json_payload::<IValue>(
                             &find_absolute_path(
                                 CACHE_PATH_WITH_IDENTIFIER.to_string(),
                                 SETTINGS_FILENAME,
@@ -93,7 +91,7 @@ fn main() {
             let win_arc = Arc::new(Mutex::new(window.to_owned()));
             window.listen("new_config", move |event| {
                 let payload = event.payload().unwrap();
-                if let Err(e) = open_write_json_payload(
+                if let Err(e) = open_write_json_payload::<IValue>(
                     &find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), SETTINGS_FILENAME),
                     payload,
                 ) {
@@ -106,18 +104,18 @@ fn main() {
                 }
             });
 
-            match read_json_file::<HashMap<String, serde_json::Value, RandomState>>(
+            match read_json_file::<IValue>(
                 &find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), SETTINGS_FILENAME),
             ) {
                 Ok(config) => {
                     if config.get("x").is_some() {
                         window.set_position(PhysicalPosition {
-                            x: config["x"].as_f64().unwrap(),
-                            y: config["y"].as_f64().unwrap(),
+                            x: config["x"].to_f32().unwrap(),
+                            y: config["y"].to_f32().unwrap(),
                         })?;
                         window.set_size(PhysicalSize {
-                            width: config["width"].as_f64().unwrap(),
-                            height: config["height"].as_f64().unwrap(),
+                            width: config["width"].to_f32().unwrap(),
+                            height: config["height"].to_f32().unwrap(),
                         })?;
                     }
                     window.to_owned().listen("front_is_up", move |_| {
@@ -133,17 +131,17 @@ fn main() {
 }
 
 #[tauri::command]
-async fn offline_translate(word: &str, lang: &str) -> Result<Value, String> {
+async fn offline_translate(word: &str, lang: &str) -> Result<IValue, String> {
     let selected_lang;
 
     match lang {
-        "en" => selected_lang = EN_DICT.to_owned(),
-        "fr" => selected_lang = FR_DICT.to_owned(),
-        "de" => selected_lang = DE_DICT.to_owned(),
-        "es" => selected_lang = ES_DICT.to_owned(),
-        "it" => selected_lang = IT_DICT.to_owned(),
-        "fa" => selected_lang = FA_DICT.to_owned(),
-        "ar" => selected_lang = AR_DICT.to_owned(),
+        // "en" => selected_lang = EN_DICT.as_ref(),
+        "fr" => selected_lang = FR_DICT.as_ref(),
+        "de" => selected_lang = DE_DICT.as_ref(),
+        "es" => selected_lang = ES_DICT.as_ref(),
+        "it" => selected_lang = IT_DICT.as_ref(),
+        "fa" => selected_lang = FA_DICT.as_ref(),
+        "ar" => selected_lang = AR_DICT.as_ref(),
         _ => return Err("language not found".to_string()),
     }
 

@@ -2,7 +2,7 @@ import { offlineDictionaries } from "./countries";
 
 export type OfflineDictNames = keyof typeof offlineDictionaries;
 export type OfflineDictAbbrs = typeof offlineDictionaries[OfflineDictNames];
-export type OfflineDictsList = { [key in OfflineDictAbbrs]: { percentage: number; volume: string; name: OfflineDictNames } };
+export type OfflineDictsList = { [key in OfflineDictAbbrs]: { percentage: number; zipped: string; extracted: string; name: OfflineDictNames, isBootUp: boolean } };
 export type offlineTranslation = {
     etymology_text?: string;
     etymology_templates?: { expansion: string; }[];
