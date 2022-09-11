@@ -55,7 +55,6 @@ lazy_static! {
             "fr",
             OfflineDict {
                 url: "https://drive.google.com/uc?export=download&id=11lUFTvd7fCKlHhxU3buxgAXslab-fiDC",
-                // url: "https://kaikki.org/dictionary/French/by-pos/adv/kaikki.org-dictionary-French-by-pos-adv.json", //4mb
                 length_mb: 25,
                 name: "French"
             }
@@ -274,6 +273,7 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     let mut stream = res.bytes_stream();
     let (tx, rx) = mpsc::channel::<i8>();
     let tarxz_path = format!("{}/{}.tar.xz", CACHE_PATH_WITH_IDENTIFIER.to_string(), abbr);
+    let tarxz_path_th = tarxz_path.clone();
     let tarxz_dict_file = File::options()
         .create(true)
         .append(true)
@@ -287,6 +287,7 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
             if let Ok(cancel_dl) = r_once_x.try_recv() {
                 if cancel_dl {
                     win_arc.lock().unwrap().unlisten(ev_han);
+                    fs::remove_file(tarxz_path_th).or(Err("error in deleting zip file"))?;
                     tx.send(-1).or(Err("error in sending cancel message"))?;
                     break 'blocking_while;
                 }
@@ -357,8 +358,8 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     tar::Archive::new(decompressor)
         .unpack(&abs_json_dir)
         .or(Err("error in unpacking".to_string()))?;
-    let mut unpacked_file = File::open(format!("{abs_json_dir}/incorrect_{abbr}.json"))
-        .or(Err("error in reading unpacked file"))?;
+    let incorrect_file_path = format!("{abs_json_dir}/incorrect_{abbr}.json");
+    let mut unpacked_file = File::open(&incorrect_file_path).or(Err("error in reading unpacked file"))?;
     let mut contents = String::new();
     unpacked_file.read_to_string(&mut contents).unwrap();
     abs_json_dir.push_str(&format!("/{abbr}"));
@@ -366,6 +367,7 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
         return Err(e.to_string());
     }
     fs::remove_file(tarxz_path).or(Err("error in deleting zip file".to_string()))?;
+    fs::remove_file(incorrect_file_path).or(Err("error in deleting incorrect file".to_string()))?;
     eprintln!("downloaded: {abbr}");
     Ok(())
 }

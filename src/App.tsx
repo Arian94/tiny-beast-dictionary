@@ -105,7 +105,7 @@ function App() {
 
     appWindow.onCloseRequested(e => {
       e.preventDefault();
-      once("config_saved", () => appWindow.close());
+      once("config_saved", () => setTimeout(() => appWindow.close(), 400));
       emitNewConfig();
     });
 
