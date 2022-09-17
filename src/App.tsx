@@ -20,6 +20,7 @@ type SavedConfig = {
   y: number;
 }
 type DownloadStatus = { name: OfflineDictAbbrs; percentage: number };
+const INIT_DICT = "initializing, wait for a minute...";
 
 function App() {
   const [inputVal, setInputVal] = useState("");
@@ -40,13 +41,13 @@ function App() {
   const isOverlappingReqEmitted = useRef(false);
   const [offlineDictsList, setOfflineDictsList] = useState<OfflineDictsList>(
     {
-      ar: { percentage: NOT_DOWNLOADED, volume: '429 MB', name: "Arabic" },
-      en: { percentage: NOT_DOWNLOADED, volume: '1.5 GB', name: "English" },
-      fr: { percentage: NOT_DOWNLOADED, volume: '324 MB', name: "French" },
-      de: { percentage: NOT_DOWNLOADED, volume: '685 MB', name: "German" },
-      it: { percentage: NOT_DOWNLOADED, volume: '424 MB', name: "Italian" },
-      fa: { percentage: NOT_DOWNLOADED, volume: '57 MB', name: "Persian" },
-      es: { percentage: NOT_DOWNLOADED, volume: '617 MB', name: "Spanish" },
+      ar: { percentage: NOT_DOWNLOADED, zipped: '20 MB', extracted: '429 MB', name: "Arabic", isBootUp: false },
+      // en: { percentage: NOT_DOWNLOADED, zipped: '', extracted: '1.5 GB', name: "English", isBootUp: false },
+      fr: { percentage: NOT_DOWNLOADED, zipped: '25 MB', extracted: '324 MB', name: "French", isBootUp: false },
+      de: { percentage: NOT_DOWNLOADED, zipped: '41 MB', extracted: '686 MB', name: "German", isBootUp: false },
+      it: { percentage: NOT_DOWNLOADED, zipped: '32 MB', extracted: '424 MB', name: "Italian", isBootUp: false },
+      fa: { percentage: NOT_DOWNLOADED, zipped: '3 MB', extracted: '54 MB', name: "Persian", isBootUp: false },
+      es: { percentage: NOT_DOWNLOADED, zipped: '39 MB', extracted: '617 MB', name: "Spanish", isBootUp: false },
     }
   );
   let clipboardBuffer: string | null;
@@ -104,7 +105,7 @@ function App() {
 
     appWindow.onCloseRequested(e => {
       e.preventDefault();
-      once("config_saved", () => appWindow.close());
+      once("config_saved", () => setTimeout(() => appWindow.close(), 400));
       emitNewConfig();
     });
 
@@ -248,6 +249,11 @@ function App() {
         translationVal = await invoke<string>('online_translate', { from: fromRef.current, to: toRef.current, word: inputVal });
       } else {
         if (selectedOfflineDict) {
+          if (!offlineDictsList[selectedOfflineDict].isBootUp) {
+            translationVal = INIT_DICT;
+            offlineDictsList[selectedOfflineDict].isBootUp = true;
+            setRefCurrent(translationRef, translationVal);
+          }
           translationVal = await invoke<offlineTranslation>('offline_translate', { word: inputVal, lang: selectedOfflineDict });
         } else {
           translationVal = '';
@@ -311,7 +317,7 @@ function App() {
             <button title="Add or Remove" onClick={() => setIsOpen(true)}></button>
             <div className={styles.offlineDict}>
               <span>Select an offline dictionary:</span>
-              <select value={selectedOfflineDict} onChange={e => setSelectedOfflineDict(e.target.value as OfflineDictAbbrs)}>
+              <select value={selectedOfflineDict} onChange={e => { setRefCurrent(translationRef, ''); setInputVal(''); setSelectedOfflineDict(e.target.value as OfflineDictAbbrs); }}>
                 <>
                   {offlineLangOptions()}
                 </>
@@ -320,19 +326,19 @@ function App() {
           </div>
         }
 
-        <button className={styles.modeChanger} title={`Go ${activeTab === 'online' ? 'offline' : 'online'}`} style={{ filter: activeTab === 'online' ? 'grayscale(0)' : 'grayscale(.8)' }}
-          onClick={() => { activeTab === "online" ? setActiveTab('offline') : setActiveTab('online'); setRefCurrent(translationRef, '') }}>
+        <button disabled={translationRef.current === INIT_DICT} className={styles.modeChanger} title={`Go ${activeTab === 'online' ? 'offline' : 'online'}`} style={{ filter: activeTab === 'online' ? 'grayscale(0)' : 'grayscale(.8)' }}
+          onClick={() => { activeTab === "online" ? setActiveTab('offline') : setActiveTab('online'); setRefCurrent(translationRef, ''); setInputVal('') }}>
         </button>
       </div>
 
       <div className={styles.input}>
-        <input ref={inputRef} autoFocus maxLength={256}
+        <input ref={inputRef} autoFocus maxLength={256} disabled={translationRef.current === INIT_DICT}
           placeholder={(activeTab === 'online' && from === 'fa') || (activeTab === 'offline' && selectedOfflineDict === 'fa') ? 'جستجو...' : 'search...'}
-          value={inputVal} onInput={event => { translationRef.current = ''; setInputVal(event.currentTarget.value) }}
+          value={inputVal} onInput={event => setInputVal(event.currentTarget.value)}
           style={{
-            direction: (activeTab === 'online' && from === 'fa' || from === 'ar') || (activeTab === 'offline' && selectedOfflineDict === 'fa' || selectedOfflineDict === 'ar') ? 'rtl' : 'ltr',
-            fontFamily: (activeTab === 'online' && from === 'fa' || from === 'ar') || (activeTab === 'offline' && selectedOfflineDict === 'fa' || selectedOfflineDict === 'ar') ? 'Noto Naskh' : 'inherit',
-            fontSize: (activeTab === 'online' && from === 'fa' || from === 'ar') || (activeTab === 'offline' && selectedOfflineDict === 'fa' || selectedOfflineDict === 'ar') ? '15px' : ''
+            direction: (activeTab === 'online' && (from === 'fa' || from === 'ar')) || (activeTab === 'offline' && (selectedOfflineDict === 'fa' || selectedOfflineDict === 'ar')) ? 'rtl' : 'ltr',
+            fontFamily: (activeTab === 'online' && (from === 'fa' || from === 'ar')) || (activeTab === 'offline' && (selectedOfflineDict === 'fa' || selectedOfflineDict === 'ar')) ? 'Noto Naskh' : 'inherit',
+            fontSize: (activeTab === 'online' && (from === 'fa' || from === 'ar')) || (activeTab === 'offline' && (selectedOfflineDict === 'fa' || selectedOfflineDict === 'ar')) ? '15px' : ''
           }} />
         <button
           title="Press Enter"
@@ -340,19 +346,24 @@ function App() {
           style={{
             opacity: !inputVal || (activeTab === 'online' && from === 'fa') || (activeTab === 'offline' && selectedOfflineDict === 'fa') ? .5 : 1,
             left: (activeTab === 'online' && from !== 'fa' && from !== 'ar') || (activeTab === 'offline' && selectedOfflineDict !== 'fa' && selectedOfflineDict !== 'ar') ? '2px' : 'unset',
-            right: (activeTab === 'online' && from !== 'fa' && from !== 'ar') ||  (activeTab === 'offline' && selectedOfflineDict !== 'fa' && selectedOfflineDict !== 'ar') ? 'unset' : '2px',
-            transform: (activeTab === 'online' && from === 'fa' || from === 'ar') || (activeTab === 'offline' && selectedOfflineDict === 'fa' || selectedOfflineDict === 'ar') ? 'scaleX(-1)' : 'unset'
+            right: (activeTab === 'online' && from !== 'fa' && from !== 'ar') || (activeTab === 'offline' && selectedOfflineDict !== 'fa' && selectedOfflineDict !== 'ar') ? 'unset' : '2px',
+            transform: (activeTab === 'online' && (from === 'fa' || from === 'ar')) || (activeTab === 'offline' && (selectedOfflineDict === 'fa' || selectedOfflineDict === 'ar')) ? 'scaleX(-1)' : 'unset'
           }}
           disabled={!inputVal || (activeTab === 'online' && from === 'fa') || (activeTab === 'offline' && selectedOfflineDict === 'fa')}>
         </button>
       </div>
 
-      <fieldset className={styles.translation} dir={(to === 'fa' || to === 'ar') && activeTab === 'online' ? 'rtl' : 'ltr'} style={{ opacity: loading ? .5 : 1 }}>
+      <fieldset className={styles.translation}
+        style={{
+          direction: activeTab === 'online' && (to === 'fa' || to === 'ar') ? 'rtl' : 'ltr',
+          opacity: loading ? .5 : 1,
+        }}>
         <legend>
           Translation
           <button
             title="Press CTRL + Enter"
-            onClick={() => speak(translationRef.current as string, to)} style={{ display: !translationRef.current || to === 'fa' || activeTab === 'offline' ? 'none' : 'block' }}
+            onClick={() => speak(translationRef.current as string, to)}
+            style={{ display: !translationRef.current || to === 'fa' || activeTab === 'offline' ? 'none' : 'block' }}
           >
           </button>
         </legend>

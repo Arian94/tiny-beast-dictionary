@@ -9,12 +9,13 @@ extern crate lazy_static;
 mod google_translate;
 mod helper;
 
-use ahash::RandomState;
 use google_translate::Translator;
 use helper::*;
-use serde_json::Value;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use ijson::IValue;
+use std::{
+    fs,
+    sync::{Arc, Mutex},
+};
 use tauri::{
     CustomMenuItem, Manager, PhysicalPosition, PhysicalSize, SystemTray, SystemTrayEvent,
     SystemTrayMenu, SystemTrayMenuItem,
@@ -46,8 +47,11 @@ fn main() {
                     let window = app.get_window("main").unwrap();
                     window.once("new_config", |event| {
                         let payload = event.payload().unwrap();
-                        open_write_json_payload(
-                            &find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), SETTINGS_FILENAME),
+                        open_write_json_payload::<IValue>(
+                            &find_absolute_path(
+                                CACHE_PATH_WITH_IDENTIFIER.to_string(),
+                                SETTINGS_FILENAME,
+                            ),
                             payload,
                         )
                         .is_ok()
@@ -74,32 +78,44 @@ fn main() {
             _ => {}
         })
         .setup(|app| {
+            if fs::metadata(CACHE_PATH_WITH_IDENTIFIER.to_string()).is_err() {
+                fs::create_dir_all(CACHE_PATH_WITH_IDENTIFIER.to_string())
+                    .or(Err("error while creating base app directory.".to_string()))?;
+                println!(
+                    "base dir created: {}",
+                    CACHE_PATH_WITH_IDENTIFIER.to_string()
+                );
+            }
+
             let window = app.get_window("main").unwrap();
             let win_arc = Arc::new(Mutex::new(window.to_owned()));
             window.listen("new_config", move |event| {
                 let payload = event.payload().unwrap();
-                if let Err(e) = open_write_json_payload(
-                    &find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), SETTINGS_FILENAME),
+                if let Err(e) = open_write_json_payload::<IValue>(
+                    &find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), SETTINGS_FILENAME),
                     payload,
                 ) {
-                    eprintln!("error in writing new config: {e}");
+                    eprintln!(
+                        "error in writing new config at {} : {e}",
+                        CACHE_PATH_WITH_IDENTIFIER.to_string()
+                    );
                 } else {
                     win_arc.lock().unwrap().emit("config_saved", "").unwrap();
                 }
             });
 
-            match read_json_file::<HashMap<String, serde_json::Value, RandomState>>(
-                &find_absolute_path(RESOURCE_PATH_BUF.to_path_buf(), SETTINGS_FILENAME),
+            match read_json_file::<IValue>(
+                &find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), SETTINGS_FILENAME),
             ) {
                 Ok(config) => {
                     if config.get("x").is_some() {
                         window.set_position(PhysicalPosition {
-                            x: config["x"].as_f64().unwrap(),
-                            y: config["y"].as_f64().unwrap(),
+                            x: config["x"].to_f32().unwrap(),
+                            y: config["y"].to_f32().unwrap(),
                         })?;
                         window.set_size(PhysicalSize {
-                            width: config["width"].as_f64().unwrap(),
-                            height: config["height"].as_f64().unwrap(),
+                            width: config["width"].to_f32().unwrap(),
+                            height: config["height"].to_f32().unwrap(),
                         })?;
                     }
                     window.to_owned().listen("front_is_up", move |_| {
@@ -115,25 +131,25 @@ fn main() {
 }
 
 #[tauri::command]
-fn offline_translate(word: &str, lang: &str) -> Result<Value, &'static str> {
+async fn offline_translate(word: &str, lang: &str) -> Result<IValue, String> {
     let selected_lang;
 
     match lang {
-        "en" => selected_lang = EN_DICT.to_owned(),
-        "fr" => selected_lang = FR_DICT.to_owned(),
-        "de" => selected_lang = DE_DICT.to_owned(),
-        "es" => selected_lang = ES_DICT.to_owned(),
-        "it" => selected_lang = IT_DICT.to_owned(),
-        "fa" => selected_lang = FA_DICT.to_owned(),
-        "ar" => selected_lang = AR_DICT.to_owned(),
-        _ => return Err("language not found"),
+        // "en" => selected_lang = EN_DICT.as_ref(),
+        "fr" => selected_lang = FR_DICT.as_ref(),
+        "de" => selected_lang = DE_DICT.as_ref(),
+        "es" => selected_lang = ES_DICT.as_ref(),
+        "it" => selected_lang = IT_DICT.as_ref(),
+        "fa" => selected_lang = FA_DICT.as_ref(),
+        "ar" => selected_lang = AR_DICT.as_ref(),
+        _ => return Err("language not found".to_string()),
     }
 
-    if let Some(found) = selected_lang.get(word) {
+    if let Some(found) = selected_lang?.get(word) {
         let val = found.to_owned();
         Ok(val)
     } else {
-        Err("not found")
+        Err("not found".to_string())
     }
 }
 
@@ -226,7 +242,7 @@ async fn download_dict(abbr: &str, app_window: tauri::Window) -> Result<(), Stri
 #[tauri::command]
 async fn delete_dict(abbr: &str) -> Result<(), String> {
     if let Err(e) = delete_json_file(&find_absolute_path(
-        RESOURCE_PATH_BUF.to_path_buf(),
+        CACHE_PATH_WITH_IDENTIFIER.to_string(),
         &format!("{JSON_DIR}/{abbr}"),
     )) {
         return Err(e.to_string());

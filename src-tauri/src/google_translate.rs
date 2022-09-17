@@ -6,7 +6,7 @@ pub struct Translator<'a> {
 }
 
 impl Translator<'_> {
-    pub async fn translate(&self, text: &str) -> Result<String,String> {
+    pub async fn translate(&self, text: &str) -> Result<String, String> {
         parse_result(fetch_page(text, self.from, self.to).await)
     }
 }

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Tiny Beast Dictionary
+Exec=tiny-beast-dictionary %U
+Terminal=false
+Icon=${SNAP}/icons/128x128.png
+Type=Application
+Comment=Small Dictionary App.

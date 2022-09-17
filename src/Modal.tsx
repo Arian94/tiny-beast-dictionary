@@ -67,7 +67,7 @@ export const Modal: React.FC<{
           const dlStatusIcon = dict.percentage === NOT_DOWNLOADED ? downloadIcon : dict.percentage === DOWNLOADED ? deleteIcon : cancelIcon;
           return (
             <div key={abbr} className={styles.dict}>
-              <span>{dict.name} ({dict.volume})</span>
+              <span>{dict.name} <small>(Z: {dict.zipped}, E: {dict.extracted})</small></span>
               <div className={styles.download}>
                 {dict.percentage !== -1 && dict.percentage !== 100 && <span>{dict.percentage === 99 ? <h6>processing</h6> : `${dict.percentage}%`}</span>}
                 <button
@@ -99,7 +99,10 @@ export const Modal: React.FC<{
           </div>
 
           <div className={styles.modalContent}>
-            <p>List of available dictionaries:</p>
+            <div className={styles.title}>
+              List of available dictionaries:
+              <small>File Sizes: Zipped: Z - Extracted: E</small>
+            </div>
             <div className={styles.scroller}>
               <>
                 {langOptions()}
