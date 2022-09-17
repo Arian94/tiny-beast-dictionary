@@ -98,8 +98,7 @@
         "minHeight": 220,
         "height": 220,
         "resizable": true,
-        "center": true,
-        "transparent": true
+        "center": true
       }
     ]
   }

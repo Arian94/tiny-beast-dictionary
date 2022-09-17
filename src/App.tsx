@@ -60,13 +60,13 @@ function App() {
   function translationSpeakHandler(e: KeyboardEvent) {
     if (!translationRef.current) return;
     if (toRef.current === 'fa') return;
-    if (e.key !== 'Enter' || !e.ctrlKey) return;
+    if (e.code !== 'Enter' || !e.ctrlKey) return;
     if (activeTab === 'offline') return;
     speak(translationRef.current as string, toRef.current);
   }
 
   function inputSpeakHandler(this: HTMLInputElement, e: KeyboardEvent) {
-    if (e.key !== 'Enter') return;
+    if (e.code !== 'Enter') return;
     if (e.ctrlKey) return;
     if (activeTabRef.current === 'online' && fromRef.current === 'fa') return;
     if (activeTabRef.current === 'offline' && selectedOfflineDictRef.current === 'fa') return;
@@ -78,7 +78,6 @@ function App() {
   async function emitNewConfig() {
     const { x, y } = await appWindow.outerPosition();
     const { width, height } = await appWindow.innerSize();
-
     emit('new_config', {
       activeTab: activeTabRef.current,
       from: fromRef.current,
@@ -89,10 +88,14 @@ function App() {
       y,
       width,
       height
+      // width: width + 18,      // offsets are for windows build
+      // height: height + 47     // offsets are for windows build
     } as SavedConfig);
   }
 
   useEffect(() => {
+    // appWindow.setDecorations(true);     // tarui.conf and this for windows build
+
     once<SavedConfig>('get_saved_config', ({ payload: { activeTab, from, to, selectedOfflineDict, downloadedDicts } }) => {
       activeTab && setActiveTab(activeTab as 'online' | 'offline')
       from && setFrom(from)
