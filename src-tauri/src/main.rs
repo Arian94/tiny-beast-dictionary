@@ -14,7 +14,7 @@ use helper::*;
 use ijson::IValue;
 use std::{
     fs,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex}
 };
 use tauri::{
     CustomMenuItem, Manager, PhysicalPosition, PhysicalSize, SystemTray, SystemTrayEvent,
@@ -104,9 +104,10 @@ fn main() {
                 }
             });
 
-            match read_json_file::<IValue>(
-                &find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), SETTINGS_FILENAME),
-            ) {
+            match read_json_file::<IValue>(&find_absolute_path(
+                CACHE_PATH_WITH_IDENTIFIER.to_string(),
+                SETTINGS_FILENAME,
+            )) {
                 Ok(config) => {
                     if config.get("x").is_some() {
                         window.set_position(PhysicalPosition {
@@ -133,19 +134,22 @@ fn main() {
 #[tauri::command]
 async fn offline_translate(word: &str, lang: &str) -> Result<IValue, String> {
     let selected_lang;
+    let word = word.to_lowercase();
 
     match lang {
-        // "en" => selected_lang = EN_DICT.as_ref(),
+        "en" => selected_lang = EN_DICT.as_ref(),
         "fr" => selected_lang = FR_DICT.as_ref(),
         "de" => selected_lang = DE_DICT.as_ref(),
         "es" => selected_lang = ES_DICT.as_ref(),
         "it" => selected_lang = IT_DICT.as_ref(),
         "fa" => selected_lang = FA_DICT.as_ref(),
+        "pt" => selected_lang = PT_DICT.as_ref(),
+        "zh-CN" => selected_lang = ZH_CN_DICT.as_ref(),
         "ar" => selected_lang = AR_DICT.as_ref(),
         _ => return Err("language not found".to_string()),
     }
 
-    if let Some(found) = selected_lang?.get(word) {
+    if let Some(found) = selected_lang?.get(&*word) {
         let val = found.to_owned();
         Ok(val)
     } else {

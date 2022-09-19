@@ -1,11 +1,13 @@
 
 export const offlineDictionaries = {
-    // English: "en",
+    English: "en",
     French: "fr",
     German: "de",
     Spanish: "es",
+    Portuguese: "pt",
     Italian: "it",
     Persian: "fa",
+    Chinese: "zh-CN",
     Arabic: "ar",
 } as const;
 
@@ -18,12 +20,12 @@ export const onlineDictionaries = {
     Bosnian: "bs",
     Bulgarian: "bg",
     Catalan: "ca",
-    Chinese: "zh-CN",
+    Chinese: offlineDictionaries.Chinese,
     Croatian: "hr",
     Czech: "cs",
     Danish: "da",
     Dutch: "nl",
-    English: "en", // offlineDictionaries.English,
+    English: offlineDictionaries.English,
     Esperanto: "eo",
     Estonian: "et",
     Filipino: "tl",
@@ -52,7 +54,7 @@ export const onlineDictionaries = {
     Norwegian: "no",
     Persian: offlineDictionaries.Persian,
     Polish: "pl",
-    Portuguese: "pt",
+    Portuguese: offlineDictionaries.Portuguese,
     Romanian: "ro",
     Russian: "ru",
     Serbian: "sr",

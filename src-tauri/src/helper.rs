@@ -35,22 +35,24 @@ lazy_static! {
     static ref IDENTIFIER: String = format!("{}", tauri::generate_context!().config().tauri.bundle.identifier);
     static ref CACHE_PATH_BUF: PathBuf = tauri::api::path::cache_dir().unwrap();
     pub static ref CACHE_PATH_WITH_IDENTIFIER: String = format!("{}/{}", CACHE_PATH_BUF.to_str().unwrap(), IDENTIFIER.to_string());
-    // pub static ref EN_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/en"))).or(Err(format!("en dict not found")));
-    pub static ref FR_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/fr"))).or(Err(format!("fr dict not found")));
-    pub static ref DE_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/de"))).or(Err(format!("de dict not found")));
-    pub static ref ES_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/es"))).or(Err(format!("es dict not found")));
-    pub static ref IT_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/it"))).or(Err(format!("it dict not found")));
-    pub static ref FA_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/fa"))).or(Err(format!("fa dict not found")));
-    pub static ref AR_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/ar"))).or(Err(format!("ar dict not found")));
+    pub static ref EN_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/en"))).or(Err(format!("error occurred for en dict")));
+    pub static ref FR_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/fr"))).or(Err(format!("error occurred for fr dict")));
+    pub static ref DE_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/de"))).or(Err(format!("error occurred for de dict")));
+    pub static ref ES_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/es"))).or(Err(format!("error occurred for es dict")));
+    pub static ref IT_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/it"))).or(Err(format!("error occurred for it dict")));
+    pub static ref FA_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/fa"))).or(Err(format!("error occurred for fa dict")));
+    pub static ref PT_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/pt"))).or(Err(format!("error occurred for pt dict")));
+    pub static ref ZH_CN_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/zh-CN"))).or(Err(format!("error occurred for zh-CN dict")));
+    pub static ref AR_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/ar"))).or(Err(format!("error occurred for ar dict")));
     pub static ref OFFLINE_DICTS: HashMap<&'static str, OfflineDict<'static>> = HashMap::from([
-        // (
-        //     "en",
-        //     OfflineDict {
-        //         url: "https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.json",
-        //         length_mb: 1536,
-        //         name: "English"
-        //     }
-        // ),
+        (
+            "en",
+            OfflineDict {
+                url: "https://drive.google.com/uc?export=download&id=1ZxMDBL-cAxIGVQ4KJR9iEVm_bXOJWnog",
+                length_mb: 94,
+                name: "English"
+            }
+        ),
         (
             "fr",
             OfflineDict {
@@ -89,6 +91,22 @@ lazy_static! {
                 url: "https://drive.google.com/uc?export=download&id=1YWVECa-0YyMkk8LwlLuBr5aoQu_WzqnX",
                 length_mb: 3,
                 name: "Persian"
+            }
+        ),
+        (
+            "pt",
+            OfflineDict {
+                url: "https://drive.google.com/uc?export=download&id=1I9eKFLCKupfjioTkbL83yKyyNNttazLS",
+                length_mb: 20,
+                name: "Portuguese"
+            }
+        ),
+        (
+            "zh-CN",
+            OfflineDict {
+                url: "https://drive.google.com/uc?export=download&id=174MR_R1Kfcm-F9KoO5xmUBpHwZ2fmE4O",
+                length_mb: 47,
+                name: "Chinese"
             }
         ),
         (
@@ -274,6 +292,9 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     let (tx, rx) = mpsc::channel::<i8>();
     let tarxz_path = format!("{}/{}.tar.xz", CACHE_PATH_WITH_IDENTIFIER.to_string(), abbr);
     let tarxz_path_th = tarxz_path.clone();
+    if fs::metadata(&tarxz_path).is_ok() {
+        fs::remove_file(&tarxz_path).or(Err("error in deleting corrupted zip file".to_string()))?;
+    }
     let tarxz_dict_file = File::options()
         .create(true)
         .append(true)

@@ -20,7 +20,7 @@ type SavedConfig = {
   y: number;
 }
 type DownloadStatus = { name: OfflineDictAbbrs; percentage: number };
-const INIT_DICT = "initializing, wait for a minute...";
+const INIT_DICT = "initializing, wait for a moment...";
 
 function App() {
   const [inputVal, setInputVal] = useState("");
@@ -41,13 +41,15 @@ function App() {
   const isOverlappingReqEmitted = useRef(false);
   const [offlineDictsList, setOfflineDictsList] = useState<OfflineDictsList>(
     {
-      ar: { percentage: NOT_DOWNLOADED, zipped: '20 MB', extracted: '429 MB', name: "Arabic", isBootUp: false },
-      // en: { percentage: NOT_DOWNLOADED, zipped: '', extracted: '1.5 GB', name: "English", isBootUp: false },
+      en: { percentage: NOT_DOWNLOADED, zipped: '94 MB', extracted: '621 MB', name: "English", isBootUp: false },
       fr: { percentage: NOT_DOWNLOADED, zipped: '25 MB', extracted: '324 MB', name: "French", isBootUp: false },
       de: { percentage: NOT_DOWNLOADED, zipped: '41 MB', extracted: '686 MB', name: "German", isBootUp: false },
+      es: { percentage: NOT_DOWNLOADED, zipped: '39 MB', extracted: '617 MB', name: "Spanish", isBootUp: false },
       it: { percentage: NOT_DOWNLOADED, zipped: '32 MB', extracted: '424 MB', name: "Italian", isBootUp: false },
       fa: { percentage: NOT_DOWNLOADED, zipped: '3 MB', extracted: '54 MB', name: "Persian", isBootUp: false },
-      es: { percentage: NOT_DOWNLOADED, zipped: '39 MB', extracted: '617 MB', name: "Spanish", isBootUp: false },
+      pt: { percentage: NOT_DOWNLOADED, zipped: '20 MB', extracted: '279 MB', name: "Portuguese", isBootUp: false },
+      "zh-CN": { percentage: NOT_DOWNLOADED, zipped: '47 MB', extracted: '619 MB', name: "Chinese", isBootUp: false },
+      ar: { percentage: NOT_DOWNLOADED, zipped: '20 MB', extracted: '429 MB', name: "Arabic", isBootUp: false },
     }
   );
   let clipboardBuffer: string | null;
@@ -105,7 +107,7 @@ function App() {
 
     appWindow.onCloseRequested(e => {
       e.preventDefault();
-      once("config_saved", () => setTimeout(() => appWindow.close(), 400));
+      once("config_saved", () => setTimeout(() => appWindow.close(), 250));
       emitNewConfig();
     });
 
@@ -123,8 +125,8 @@ function App() {
       setInputVal(clip);
     }
 
-    // run readText once to store/read clipboard content which may exist before opening the app. 
-    readText().then(clip => readClipboard(clip))
+    // // run readText once to store/read clipboard content which may exist before opening the app. 
+    // readText().then(clip => readClipboard(clip))
 
     const focusListener = listen<FocusEvent>('tauri://focus',
       () => readText().then(clip => readClipboard(clip))
@@ -196,7 +198,8 @@ function App() {
               {!!s.categories?.length && <p key={s.categories[0].name}>Categories: {s.categories.map(c => c.name).join(", ")}</p>}
               <p >Glosses: {[...s.glosses]}</p>
               {s.tags && <p>Tags: {s.tags.join(', ')}</p>}
-              {s.form_of && <p >Form of: {s.form_of.word} </p>}
+              {!!s.form_of?.length && <p >Form of: {s.form_of[0].word} </p>}
+              {!!s.alt_of?.length && <p >Alternative of: {s.alt_of[0].word} </p>}
               {!!s.examples?.length && <div>
                 <strong >Examples:</strong>
                 {s.examples.map(e => {
@@ -216,8 +219,8 @@ function App() {
         {translationRef.current.etymology_text && <div>
           <strong key="ety text">Etymology text:</strong> {translationRef.current.etymology_text}
         </div>}
-        {translationRef.current.etymology_templates && <div>
-          <strong key="ety temp">Etymology templates:</strong> {translationRef.current.etymology_templates.map(et => et.expansion).join(", ")}
+        {translationRef.current.etymology_templates && !!translationRef.current.etymology_templates.length && <div>
+          <strong key="ety temp">Etymology templates:</strong> {translationRef.current.etymology_templates.filter(et => et.expansion).map(et => et.expansion).join(", ")}
         </div>}
       </div>
     )

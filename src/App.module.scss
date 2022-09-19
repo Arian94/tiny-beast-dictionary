@@ -137,6 +137,8 @@ fieldset {
   background-color: rgba(166, 214, 240, 0.1);
   border: 1px solid rgb(63, 63, 117);
   border-radius: 5px;
+  -webkit-user-select: text;
+  user-select: text;
 
   legend {
     direction: ltr;

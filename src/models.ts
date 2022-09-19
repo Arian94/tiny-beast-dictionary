@@ -10,16 +10,17 @@ export type offlineTranslation = {
         categories: { name?: string; }[];
         glosses: string[];
         tags?: string[];
-        form_of?: { word: string; };
+        form_of?: { word: string; }[];
         examples?: {
             text: string;
             ref: string;
             english?: string;
             type: string;
         }[];
+        alt_of?: { word: string; }[];
     }[];
     pos: string;
     related: { word: string; }[];
     forms?: { form: string; tags: string[]; };
-    sounds: ({ ipa: string; tags?: string[]; } | { homophone: string; })[];
+    sounds?: ({ ipa: string; tags?: string[]; } | { homophone: string; })[];
 }

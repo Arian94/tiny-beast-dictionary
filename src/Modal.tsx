@@ -92,7 +92,7 @@ export const Modal: React.FC<{
 
         <div className={styles.modal}>
           <div className={styles.modalHeader}>
-            <h4 className={styles.heading}>Offline Resources</h4>
+            <h4 className={styles.heading}>Resources</h4>
             <button className={styles.closeBtn} onClick={() => setIsOpen(false)}>
               X
             </button>
