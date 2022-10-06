@@ -8,28 +8,62 @@ extern crate lazy_static;
 
 mod google_translate;
 mod helper;
-
 use google_translate::Translator;
 use helper::*;
 use ijson::IValue;
 use std::{
     fs,
-    sync::{Arc, Mutex}
+    sync::{Arc, Mutex},
+    thread,
 };
 use tauri::{
     CustomMenuItem, Manager, PhysicalPosition, PhysicalSize, SystemTray, SystemTrayEvent,
-    SystemTrayMenu, SystemTrayMenuItem,
+    SystemTrayMenu, SystemTrayMenuItem, SystemTraySubmenu, WindowEvent,
 };
 use tts_rust::languages::Languages::*;
 use tts_rust::GTTSClient;
 
 fn main() {
-    let quit = CustomMenuItem::new("quit".to_string(), "Quit");
-    let hide = CustomMenuItem::new("hide".to_string(), "Hide");
+    let quit = CustomMenuItem::new("quit", "Quit");
+    let show_hide = CustomMenuItem::new("show_hide", "Hide");
+    let mut clipboard = CustomMenuItem::new("clipboard".to_string(), "Translate Clipboard (On)");
+    let mut selected_text_setting =
+        CustomMenuItem::new("selected_text".to_string(), "Translate Selected Text (On)");
+    let config_result = read_json_file::<IValue>(&find_absolute_path(
+        CACHE_PATH_WITH_IDENTIFIER.to_string(),
+        SETTINGS_FILENAME,
+    ));
+    let arc_translate_clip = Arc::new(Mutex::new(true));
+    let arc_translate_selected_text = Arc::new(Mutex::new(true));
+    let listener_clone_translate_selected_text = Arc::clone(&arc_translate_selected_text);
+    if let Ok(conf) = config_result.as_ref() {
+        *arc_translate_clip.lock().unwrap() =
+            conf.get("translateClipboard").unwrap().to_bool().unwrap();
+        *arc_translate_selected_text.lock().unwrap() = conf
+            .get("translateSelectedText")
+            .unwrap()
+            .to_bool()
+            .unwrap();
+        clipboard.title = if *arc_translate_clip.lock().unwrap() {
+            "Translate Clipboard (On)".to_string()
+        } else {
+            "Translate Clipboard (Off)".to_string()
+        };
+        selected_text_setting.title = if *arc_translate_selected_text.lock().unwrap() {
+            "Translate Selected Text (On)".to_string()
+        } else {
+            "Translate Selected Text (Off)".to_string()
+        };
+    }
+    let setting_items = SystemTrayMenu::new()
+        .add_item(clipboard)
+        .add_item(selected_text_setting);
+    let setting_menu = SystemTraySubmenu::new("Settings", setting_items);
     let tray_menu = SystemTrayMenu::new()
         .add_item(quit)
         .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(hide);
+        .add_item(show_hide)
+        .add_submenu(setting_menu);
     let tray = SystemTray::new().with_menu(tray_menu);
 
     tauri::Builder::default()
@@ -42,42 +76,74 @@ fn main() {
         ])
         .system_tray(tray)
         .on_system_tray_event(move |app, event| match event {
-            SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
-                "quit" => {
-                    let window = app.get_window("main").unwrap();
-                    window.once("new_config", |event| {
-                        let payload = event.payload().unwrap();
-                        open_write_json_payload::<IValue>(
-                            &find_absolute_path(
-                                CACHE_PATH_WITH_IDENTIFIER.to_string(),
-                                SETTINGS_FILENAME,
-                            ),
-                            payload,
-                        )
-                        .is_ok()
-                        .then(|| std::process::exit(0));
-                    });
-                    window.emit("quit", "quit button clicked").unwrap();
-                }
-                "hide" => {
-                    let item_handle = app.tray_handle().get_item(&id);
-                    let window = app.get_window("main").unwrap();
-                    eprintln!("{}", window.is_visible().unwrap_or(false));
-                    if window.is_visible().unwrap_or(false) {
-                        window.hide().unwrap();
-                        item_handle.set_title("Show").unwrap();
-                    } else {
-                        let pos = window.outer_position().unwrap();
-                        window.set_position(pos).unwrap();
-                        window.show().unwrap();
-                        item_handle.set_title("Hide").unwrap();
+            SystemTrayEvent::MenuItemClick { id, .. } => {
+                let item_handle = app.tray_handle().get_item(&id);
+                let window = app.get_window("main").unwrap();
+
+                match id.as_str() {
+                    "quit" => {
+                        window.once("new_config", |event| {
+                            let payload = event.payload().unwrap();
+                            open_write_json_payload::<IValue>(
+                                &find_absolute_path(
+                                    CACHE_PATH_WITH_IDENTIFIER.to_string(),
+                                    SETTINGS_FILENAME,
+                                ),
+                                payload,
+                            )
+                            .is_ok()
+                            .then(|| std::process::exit(0));
+                        });
+                        window.emit("quit", "quit button in tray clicked").unwrap();
                     }
+                    "show_hide" => {
+                        if window.is_visible().unwrap_or(false) {
+                            window.hide().unwrap();
+                            item_handle.set_title("Show").unwrap();
+                        } else {
+                            let pos = window.outer_position().unwrap();
+                            window.set_position(pos).unwrap();
+                            window.show().unwrap();
+                            item_handle.set_title("Hide").unwrap();
+                        }
+                    }
+                    "clipboard" => {
+                        let tc = !*arc_translate_clip.lock().unwrap();
+                        *arc_translate_clip.lock().unwrap() = tc;
+                        let title = if tc { "On" } else { "Off" };
+                        if let Err(err) = item_handle
+                            .set_title(format!("Translate Clipboard ({title})"))
+                            .and(window.emit(
+                                "tray_settings",
+                                (tc, *arc_translate_selected_text.lock().unwrap()),
+                            ))
+                        {
+                            eprintln!("tray_settings clipboard error: {err}");
+                        }
+                    }
+                    "selected_text" => {
+                        let ts = !*arc_translate_selected_text.lock().unwrap();
+                        *arc_translate_selected_text.lock().unwrap() = ts;
+                        let title = if ts { "On" } else { "Off" };
+                        if let Err(err) =
+                            item_handle
+                                .set_title(format!("Translate Selected Text ({title})"))
+                                .and(window.emit(
+                                    "tray_settings",
+                                    (*arc_translate_clip.lock().unwrap(), ts),
+                                ))
+                        {
+                            eprintln!("tray_settings selected_text error: {err}");
+                        }
+                    }
+                    _ => {}
                 }
-                _ => {}
-            },
+            }
             _ => {}
         })
-        .setup(|app| {
+        .setup(move |app| {
+            let window = app.get_window("main").unwrap();
+
             if fs::metadata(CACHE_PATH_WITH_IDENTIFIER.to_string()).is_err() {
                 fs::create_dir_all(CACHE_PATH_WITH_IDENTIFIER.to_string())
                     .or(Err("error while creating base app directory.".to_string()))?;
@@ -87,8 +153,7 @@ fn main() {
                 );
             }
 
-            let window = app.get_window("main").unwrap();
-            let win_arc = Arc::new(Mutex::new(window.to_owned()));
+            let config_win = window.clone();
             window.listen("new_config", move |event| {
                 let payload = event.payload().unwrap();
                 if let Err(e) = open_write_json_payload::<IValue>(
@@ -100,31 +165,113 @@ fn main() {
                         CACHE_PATH_WITH_IDENTIFIER.to_string()
                     );
                 } else {
-                    win_arc.lock().unwrap().emit("config_saved", "").unwrap();
+                    config_win.emit("config_saved", "").unwrap();
                 }
             });
 
-            match read_json_file::<IValue>(&find_absolute_path(
-                CACHE_PATH_WITH_IDENTIFIER.to_string(),
-                SETTINGS_FILENAME,
-            )) {
+            let set_win = window.clone();
+            match config_result {
                 Ok(config) => {
-                    if config.get("x").is_some() {
-                        window.set_position(PhysicalPosition {
-                            x: config["x"].to_f32().unwrap(),
-                            y: config["y"].to_f32().unwrap(),
-                        })?;
-                        window.set_size(PhysicalSize {
-                            width: config["width"].to_f32().unwrap(),
-                            height: config["height"].to_f32().unwrap(),
-                        })?;
-                    }
-                    window.to_owned().listen("front_is_up", move |_| {
-                        window.emit("get_saved_config", config.to_owned()).unwrap();
+                    window.set_position(PhysicalPosition {
+                        x: config["x"].to_f32().unwrap(),
+                        y: config["y"].to_f32().unwrap(),
+                    })?;
+                    window.set_size(PhysicalSize {
+                        width: config["width"].to_f32().unwrap(),
+                        height: config["height"].to_f32().unwrap(),
+                    })?;
+                    window.listen("front_is_up", move |_| {
+                        set_win.emit("get_saved_config", config.to_owned()).unwrap();
                     });
                 }
-                Err(err) => eprintln!("{err}"),
+                Err(err) => eprintln!("config result error: {err}"),
             };
+
+            let thread_win = window.clone();
+            let app_handle = app.handle();
+            thread::spawn(move || {
+                let _consume_first_xsel_before_startup = std::process::Command::new("xsel")
+                    .output()
+                    .expect("failed to get shell output");
+                let script = "window.addEventListener('click', () => window.close());";
+                if let Ok(builder) = tauri::WindowBuilder::new(
+                    &app_handle,
+                    "translate_label",
+                    tauri::WindowUrl::App("preview.html".into()),
+                )
+                .decorations(false)
+                .transparent(true)
+                .visible(false)
+                .initialization_script(script)
+                .position(0.0, 0.0)
+                .inner_size(35.0, 35.0)
+                .build()
+                {
+                    let arc_op = Arc::new(Mutex::new("".to_string()));
+                    let clone_arc = Arc::clone(&arc_op);
+                    let b = builder.to_owned();
+                    builder.on_window_event(move |e| match e {
+                        WindowEvent::Focused(is_focused) => {
+                            if !*is_focused {
+                                b.hide().unwrap();
+                            }
+                        }
+                        WindowEvent::CloseRequested { api, .. } => {
+                            api.prevent_close();
+                            let output = &*arc_op.lock().unwrap();
+                            let item_handle =
+                                thread_win.app_handle().tray_handle().get_item("show_hide");
+                            item_handle.set_title("Hide").unwrap(); // in front-end window.show() is called.
+                            if let Err(err) = thread_win.emit("text_selected", output) {
+                                eprintln!("{}", err.to_string());
+                            }
+                            b.hide().unwrap();
+                        }
+                        _ => {}
+                    });
+
+                    let mut mouse_position = PhysicalPosition { x: 0.0, y: 0.0 };
+                    if let Err(err) = rdev::listen(move |ev| {
+                        if !*listener_clone_translate_selected_text.lock().unwrap() {
+                            return;
+                        }
+                        match ev.event_type {
+                            rdev::EventType::MouseMove { x, y } => {
+                                mouse_position = PhysicalPosition { x, y };
+                            }
+                            rdev::EventType::ButtonRelease(rdev::Button::Left) => {
+                                let xsel = std::process::Command::new("xsel")
+                                    .output()
+                                    .expect("failed to get shell output");
+                                let xsel = String::from_utf8(xsel.stdout)
+                                    .or(Err("something went wrong in xsel"));
+                                if let Ok(output) = xsel {
+                                    let clip = tauri::ClipboardManager::read_text(
+                                        &app_handle.clipboard_manager(),
+                                    )
+                                    .unwrap_or(Some(String::new()))
+                                    .unwrap_or("".to_string());
+                                    let output = output.trim().to_owned();
+                                    if output == "" || output == clip {
+                                        return;
+                                    }
+                                    *clone_arc.lock().unwrap() = output;
+                                    builder
+                                        .set_position(PhysicalPosition {
+                                            x: mouse_position.x - 30.0,
+                                            y: mouse_position.y - 40.0,
+                                        })
+                                        .and(builder.show())
+                                        .unwrap();
+                                }
+                            }
+                            _ => {}
+                        }
+                    }) {
+                        eprintln!("global listener err: {err:?}");
+                    }
+                }
+            });
             Ok(())
         })
         .run(tauri::generate_context!())

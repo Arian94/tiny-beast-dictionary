@@ -4,12 +4,12 @@
     "beforeBuildCommand": "yarn build",
     "beforeDevCommand": "yarn dev",
     "devPath": "http://localhost:3000",
-    "distDir": "../dist",
+    "distDir": ["../dist", "../preview.html", "../icon.png"],
     "withGlobalTauri": true
   },
   "package": {
     "productName": "Tiny Beast Dictionary",
-    "version": "1.5.17"
+    "version": "1.6.20"
   },
   "tauri": {
     "systemTray": {
@@ -24,7 +24,7 @@
         "readFile": true,
         "createDir": true,
         "readDir": true,
-        "removeFile": true
+        "removeFile": false
       },
       "clipboard": {
         "all": false,
@@ -34,13 +34,11 @@
         "all": false,
         "center": true,
         "close": true,
+        "show": true,
         "hide": true,
-        "maximize": true,
-        "minimize": true,
+        "unminimize": true,
         "setPosition": true,
-        "setSize": true,
-        "setTitle": true,
-        "show": true
+        "setTitle": true
       },
       "shell": {
         "all": true
@@ -70,7 +68,9 @@
         "providerShortName": null,
         "signingIdentity": null
       },
-      "resources": ["../README.md"],
+      "resources": [
+        "../README.md"
+      ],
       "shortDescription": "tiny app for online/offline dictionaries",
       "targets": [
         "deb",

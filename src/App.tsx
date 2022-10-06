@@ -1,7 +1,7 @@
 import { readText } from '@tauri-apps/api/clipboard';
-import { emit, listen, once } from '@tauri-apps/api/event';
+import { emit, listen, once, TauriEvent } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/tauri';
-import { appWindow } from '@tauri-apps/api/window';
+import { appWindow, PhysicalPosition } from '@tauri-apps/api/window';
 import { createRef, MutableRefObject, useEffect, useRef, useState } from 'react';
 import styles from './App.module.scss';
 import { onlineDictionaries } from './countries';
@@ -18,6 +18,10 @@ type SavedConfig = {
   downloadedDicts?: OfflineDictAbbrs[];
   x: number;
   y: number;
+  width: number;
+  height: number;
+  translateClipboard: boolean;
+  translateSelectedText: boolean;
 }
 type DownloadStatus = { name: OfflineDictAbbrs; percentage: number };
 const INIT_DICT = "initializing, wait for a moment...";
@@ -52,6 +56,8 @@ function App() {
       ar: { percentage: NOT_DOWNLOADED, zipped: '20 MB', extracted: '429 MB', name: "Arabic", isBootUp: false },
     }
   );
+  const translateClipboard = useRef(true);
+  const _translateSelectedText = useRef(true)
   let clipboardBuffer: string | null;
   let isSpeaking = false;
 
@@ -77,30 +83,37 @@ function App() {
     speak(value, activeTabRef.current === 'online' ? fromRef.current : selectedOfflineDictRef.current || 'auto');
   }
 
-  async function emitNewConfig() {
+  async function emitNewConfig(selectedOfflineDict?: OfflineDictAbbrs | null, downloadedDicts?: OfflineDictAbbrs[]) {
     const { x, y } = await appWindow.outerPosition();
     const { width, height } = await appWindow.innerSize();
+    const sod = selectedOfflineDict || (selectedOfflineDict === null ? undefined : (selectedOfflineDictRef.current || undefined));
+    const dd = downloadedDicts || downloadedDictsRef.current;
 
-    emit('new_config', {
+    const config: SavedConfig = {
       activeTab: activeTabRef.current,
       from: fromRef.current,
       to: toRef.current,
-      selectedOfflineDict: selectedOfflineDictRef.current,
-      downloadedDicts: downloadedDictsRef.current.length ? downloadedDictsRef.current : undefined,
+      selectedOfflineDict: sod,
+      downloadedDicts: dd.length ? dd : undefined,
       x,
       y,
       width,
-      height
-    } as SavedConfig);
+      height,
+      translateClipboard: translateClipboard.current,
+      translateSelectedText: _translateSelectedText.current
+    };
+    emit('new_config', config);
   }
 
   useEffect(() => {
-    once<SavedConfig>('get_saved_config', ({ payload: { activeTab, from, to, selectedOfflineDict, downloadedDicts } }) => {
+    once<SavedConfig>('get_saved_config', ({ payload: { activeTab, from, to, selectedOfflineDict, downloadedDicts, translateClipboard: tc, translateSelectedText: ts } }) => {
       activeTab && setActiveTab(activeTab as 'online' | 'offline')
       from && setFrom(from)
       to && setTo(to)
       selectedOfflineDict && setSelectedOfflineDict(selectedOfflineDict)
       downloadedDicts?.length && setDownloadedDicts(downloadedDicts)
+      translateClipboard.current = tc
+      _translateSelectedText.current = ts
     });
 
     emit('front_is_up');
@@ -117,19 +130,30 @@ function App() {
     window.addEventListener('keypress', translationSpeakHandler);
 
     const readClipboard = (clip: string | null) => {
-      if (!clip?.trim()) return;
-      if (clip === clipboardBuffer) return;
-      if (clip.search(/[;{}\[\]<>]/) >= 0) return;
+      const trimmed = clip?.trim();
+      if (!trimmed) return;
+      if (trimmed === clipboardBuffer) return;
+      if (trimmed.search(/[{}\[\]<>]/) >= 0) return;
 
-      clipboardBuffer = clip;
-      setInputVal(clip);
+      clipboardBuffer = trimmed;
+      setInputVal(trimmed);
     }
 
     // // run readText once to store/read clipboard content which may exist before opening the app. 
     // readText().then(clip => readClipboard(clip))
 
-    const focusListener = listen<FocusEvent>('tauri://focus',
-      () => readText().then(clip => readClipboard(clip))
+    const translateClipboardListener = listen<boolean[]>('tray_settings',
+      ({ payload }) => {
+        translateClipboard.current = payload[0];
+        _translateSelectedText.current = payload[1];
+        emitNewConfig();
+      });
+
+    const focusListener = listen<FocusEvent>(TauriEvent.WINDOW_FOCUS,
+      () => {
+        if (!translateClipboard.current) return;
+        readText().then(clip => readClipboard(clip))
+      }
     );
 
     const downloadingListener = listen<DownloadStatus>('downloading', (msg) => {
@@ -137,9 +161,19 @@ function App() {
       setOfflineDictsList({ ...offlineDictsList });
     });
 
+    const translateSelectedTextListener = listen<string>('text_selected', async ({ payload: text }) => {
+      setInputVal(text);
+      await appWindow.hide();                                                 //* hiding and then showing to suppress the os notification when using window.unminimize()
+      const pos = await appWindow.outerPosition();
+      appWindow.setPosition(new PhysicalPosition(pos.x, pos.y - 36));         // neccessary as appWindow.show() forgets the position.
+      appWindow.show();
+    });
+
     return () => {
       focusListener.then(f => f());
       downloadingListener.then(d => d());
+      translateSelectedTextListener.then(d => d());
+      translateClipboardListener.then(d => d());
     }
   }, []);
 
@@ -154,7 +188,6 @@ function App() {
 
   useEffect(() => {
     downloadedDictsRef.current = downloadedDicts;
-    emitNewConfig();
   }, [downloadedDicts]);
 
   useEffect(() => {
@@ -290,6 +323,7 @@ function App() {
         setOfflineDictsList={setOfflineDictsList}
         selectedOfflineDict={selectedOfflineDict}
         setSelectedOfflineDict={setSelectedOfflineDict}
+        emitNewConfig={emitNewConfig}
       />}
       <div className={styles.switches}>
         {activeTab === "online" ?

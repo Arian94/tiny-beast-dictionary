@@ -19,8 +19,9 @@ export const Modal: React.FC<{
   setOfflineDictsList: React.Dispatch<React.SetStateAction<OfflineDictsList>>;
   selectedOfflineDict?: OfflineDictAbbrs;
   setSelectedOfflineDict: React.Dispatch<React.SetStateAction<OfflineDictAbbrs | undefined>>;
+  emitNewConfig: (selectedOfflineDict?: OfflineDictAbbrs, downloadedDicts?: OfflineDictAbbrs[]) => Promise<void>
 }>
-  = ({ setIsOpen, downloadedDicts, setDownloadedDicts, offlineDictsList, setOfflineDictsList, selectedOfflineDict, setSelectedOfflineDict }) => {
+  = ({ setIsOpen, downloadedDicts, setDownloadedDicts, offlineDictsList, setOfflineDictsList, selectedOfflineDict, setSelectedOfflineDict, emitNewConfig }) => {
     useEffect(() => {
       downloadedDicts.forEach(dd => offlineDictsList[dd].percentage = DOWNLOADED);
       setOfflineDictsList({ ...offlineDictsList });
@@ -34,8 +35,11 @@ export const Modal: React.FC<{
             const idx = downloadedDicts.findIndex(d => d === abbr);
             downloadedDicts.splice(idx, 1);
             setDownloadedDicts(downloadedDicts.slice());
-            !downloadedDicts.length && setSelectedOfflineDict(undefined);
-            abbr === selectedOfflineDict && setSelectedOfflineDict(downloadedDicts[0]);
+            if (abbr === selectedOfflineDict) {
+              selectedOfflineDict = downloadedDicts[0] || null;
+              setSelectedOfflineDict(selectedOfflineDict);
+            }
+            emitNewConfig(selectedOfflineDict, downloadedDicts.slice());
             setOfflineDictsList({ ...offlineDictsList });
           })
           .catch(e => console.error(e))
@@ -45,9 +49,13 @@ export const Modal: React.FC<{
         setOfflineDictsList({ ...offlineDictsList });
         invoke<void>('download_dict', { abbr, appWindow })
           .then(() => {
-            !downloadedDicts.length && setSelectedOfflineDict(abbr);
+            if (!downloadedDicts.length) {
+              selectedOfflineDict = abbr;
+              setSelectedOfflineDict(selectedOfflineDict);
+            }
             downloadedDicts.push(abbr);
             setDownloadedDicts(downloadedDicts.slice());
+            emitNewConfig(selectedOfflineDict, downloadedDicts.slice());
             offlineDictsList[abbr].percentage = DOWNLOADED;
           })
           .catch(possibleErrOrCancelation => {

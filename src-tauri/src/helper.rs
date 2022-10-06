@@ -125,7 +125,7 @@ pub fn find_absolute_path(base_path: String, path: &str) -> String {
     absolute_path
 }
 
-pub fn read_json_file<T>(path: &str) -> Result<T, Box<dyn Error>>
+pub fn read_json_file<T>(path: &str) -> Result<T, Box<dyn Error + Send + Sync>>
 where
     T: DeserializeOwned + std::fmt::Debug,
 {
@@ -158,7 +158,7 @@ where
             };
         }
         Err(err) => {
-            eprintln!("open_write_json_payload: {err}");
+            eprintln!("open_write_json_payload: {err} ---> {name} is created");
             create_write_json_file(&filename, config_value)
         }
     }
@@ -295,13 +295,11 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     if fs::metadata(&tarxz_path).is_ok() {
         fs::remove_file(&tarxz_path).or(Err("error in deleting corrupted zip file".to_string()))?;
     }
-    let tarxz_dict_file = File::options()
+    let mut tarxz_dict_file = File::options()
         .create(true)
         .append(true)
         .open(&tarxz_path)
         .unwrap();
-    let tarxz_arc = Arc::new(Mutex::new(tarxz_dict_file));
-    let tarxz_arc_clone = Arc::clone(&tarxz_arc);
     std::thread::spawn::<_, Result<(), &str>>(move || {
         let mut downloaded: u64 = 0;
         'blocking_while: while let Some(item) = block_on(stream.next()) {
@@ -314,11 +312,9 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
                 }
             }
             let chunk = item.or(Err("error while downloading file"))?;
-            if let Ok(file) = tarxz_arc_clone.lock().as_mut() {
-                file.write_all(&chunk).or(Err("error in writing chunk"))?
-            } else {
-                return Err("error in locking zip file");
-            }
+            tarxz_dict_file
+                .write_all(&chunk)
+                .or(Err("error in writing chunk"))?;
             let len = chunk.len() as u64;
             let new_percentage = (downloaded + len) * 100 / total_size;
             downloaded += len;
@@ -356,7 +352,7 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
                     continue;
                 }
                 emit_dl_status(percentage, &format!("downloading {abbr}")).unwrap();
-                dur = std::time::Duration::new(dur.as_secs() + 2, 0);
+                dur = std::time::Duration::from_secs(dur.as_secs() + 2);
             }
             Err(e) => {
                 eprintln!("error: {e}");
@@ -380,7 +376,8 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
         .unpack(&abs_json_dir)
         .or(Err("error in unpacking".to_string()))?;
     let incorrect_file_path = format!("{abs_json_dir}/incorrect_{abbr}.json");
-    let mut unpacked_file = File::open(&incorrect_file_path).or(Err("error in reading unpacked file"))?;
+    let mut unpacked_file =
+        File::open(&incorrect_file_path).or(Err("error in reading unpacked file"))?;
     let mut contents = String::new();
     unpacked_file.read_to_string(&mut contents).unwrap();
     abs_json_dir.push_str(&format!("/{abbr}"));
@@ -389,7 +386,7 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     }
     fs::remove_file(tarxz_path).or(Err("error in deleting zip file".to_string()))?;
     fs::remove_file(incorrect_file_path).or(Err("error in deleting incorrect file".to_string()))?;
-    eprintln!("downloaded: {abbr}");
+    println!("downloaded: {abbr}");
     Ok(())
 }
 
