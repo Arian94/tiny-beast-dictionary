@@ -1,0 +1,31 @@
+.addOrRemoveLangs {
+  display: flex;
+  flex-grow: 1;
+
+  button {
+    width: 50px;
+    height: 30px;
+    margin-block-start: 12px;
+    margin-inline-end: 10px;
+    border-radius: 9px;
+    background: url(../../../assets/add.svg) left no-repeat, url(../../../assets/delete.svg) right no-repeat;
+    background-size: 20px, 20px;
+    background-position-x: 4px, 28px;
+    background-color: rgb(28, 34, 28);
+    transition: background-color .3s ease-in;
+
+    &:hover {
+      background-color: var(--primary);
+    }
+  }
+
+  .offlineDict {
+    display: flex;
+    flex-grow: 1;
+    flex-direction: column;
+
+    span {
+      font-size: 10px;
+    }
+  }
+}
