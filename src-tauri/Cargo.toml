@@ -7,7 +7,7 @@ license = "GFDL-1.3-or-later"
 name = "tiny-beast-dictionary"
 repository = "https://github.com/Arian94/tiny-beast-dictionary"
 rust-version = "1.57"
-version = "1.6.20"
+version = "1.6.21"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -24,7 +24,7 @@ scraper = "0.13.0"
 serde = {version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tar = "0.4.38"
-tauri = {version = "1.1.1", features = ["clipboard-read-text", "fs-create-dir", "fs-read-dir", "fs-read-file", "fs-write-file", "shell-all", "system-tray", "window-center", "window-close", "window-hide", "window-set-position", "window-set-title", "window-show", "window-unminimize"] }
+tauri = {version = "1.1.1", features = ["clipboard-read-text", "fs-create-dir", "fs-read-dir", "fs-read-file", "fs-write-file", "process-exit", "shell-all", "system-tray", "window-center", "window-close", "window-hide", "window-set-position", "window-set-title", "window-show", "window-unminimize"] }
 tts_rust = "0.3.3"
 xz = "0.1.0"
 

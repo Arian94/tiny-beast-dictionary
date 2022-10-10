@@ -1,0 +1,29 @@
+.languageOptions {
+  display: flex;
+  flex-grow: 1;
+
+  :is(.to, .from) {
+    display: flex;
+    width: 0;
+    flex-direction: column;
+    flex-grow: 1;
+
+    span {
+      font-size: 10px;
+      margin-inline-start: 4px;
+    }
+  }
+
+  button {
+    height: 30px;
+    width: 30px;
+    align-self: end;
+    margin-inline: 4px;
+    margin-bottom: 2px;
+    background: url(../../assets/refresh.ico) no-repeat center;
+    background-color: white;
+    background-size: 20px;
+    border-radius: 15px;
+    border: 1px solid;
+  }
+}
