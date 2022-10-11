@@ -37,11 +37,14 @@ fn main() {
     let arc_translate_selected_text = Arc::new(Mutex::new(true));
     let listener_clone_translate_selected_text = Arc::clone(&arc_translate_selected_text);
     if let Ok(conf) = config_result.as_ref() {
-        *arc_translate_clip.lock().unwrap() =
-            conf.get("translateClipboard").unwrap().to_bool().unwrap();
+        *arc_translate_clip.lock().unwrap() = conf
+            .get("translateClipboard")
+            .unwrap_or(&IValue::TRUE)
+            .to_bool()
+            .unwrap();
         *arc_translate_selected_text.lock().unwrap() = conf
             .get("translateSelectedText")
-            .unwrap()
+            .unwrap_or(&IValue::TRUE)
             .to_bool()
             .unwrap();
         clipboard.title = if *arc_translate_clip.lock().unwrap() {
@@ -190,9 +193,12 @@ fn main() {
             let thread_win = window.clone();
             let app_handle = app.handle();
             thread::spawn(move || {
-                let _consume_first_xsel_before_startup = std::process::Command::new("xsel")
-                    .output()
-                    .expect("failed to get shell output");
+                let xsel_command = move || -> std::process::Output {
+                    std::process::Command::new("xsel")
+                        .output()
+                        .expect("failed to get shell output")
+                };
+                let _consume_first_xsel_before_startup = xsel_command();
                 let script = "window.addEventListener('click', () => window.close());";
                 if let Ok(builder) = tauri::WindowBuilder::new(
                     &app_handle,
@@ -240,9 +246,8 @@ fn main() {
                                 mouse_position = PhysicalPosition { x, y };
                             }
                             rdev::EventType::ButtonRelease(rdev::Button::Left) => {
-                                let xsel = std::process::Command::new("xsel")
-                                    .output()
-                                    .expect("failed to get shell output");
+                                let xsel = xsel_command();
+                                println!("xsel ine{:?}", xsel);
                                 let xsel = String::from_utf8(xsel.stdout)
                                     .or(Err("something went wrong in xsel"));
                                 if let Ok(output) = xsel {

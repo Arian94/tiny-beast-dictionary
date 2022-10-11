@@ -16,6 +16,7 @@ architectures:
   - amd64
 environment:
   ALWAYS_USE_PULSEAUDIO: '1'
+  PATH: /snap/tiny-beast-dictionary/current:$PATH
 
 apps:
   tiny-beast-dictionary:
@@ -70,15 +71,15 @@ parts:
       - icons
       - tiny-beast-dictionary
       - tiny-beast-dictionary.desktop
+      - xsel
     prime:
       - icons
       - tiny-beast-dictionary
       - tiny-beast-dictionary.desktop
+      - xsel
     stage-packages:
       - libwebkit2gtk-4.0-37
       - libasound2
-      - xsel
-
 
 
 

@@ -89,8 +89,8 @@ function App() {
       to && setTo(to)
       selectedOfflineDict && setSelectedOfflineDict(selectedOfflineDict)
       downloadedDicts?.length && setDownloadedDicts(downloadedDicts)
-      translateClipboard.current = tc
-      _translateSelectedText.current = ts
+      translateClipboard.current = tc ?? true;
+      _translateSelectedText.current = ts ?? true;
     });
 
     emit('front_is_up');
@@ -106,15 +106,12 @@ function App() {
     window.addEventListener('keypress', translationSpeakHandler);
 
     const readClipboard = (clip: string | null) => {
-      console.log('prev', clipboardBuffer);
-      
       const trimmed = clip?.trim();
       if (!trimmed) return;
       if (trimmed === clipboardBuffer) return;
       if (trimmed.search(/[{}\[\]<>]/) >= 0) return;
 
       clipboardBuffer = trimmed;
-      console.log('next', clipboardBuffer);
       setInputVal(trimmed);
     }
 
