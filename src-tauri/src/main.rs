@@ -68,6 +68,11 @@ fn main() {
         .add_item(show_hide)
         .add_submenu(setting_menu);
     let tray = SystemTray::new().with_menu(tray_menu);
+    fn xsel_command() -> std::process::Output {
+        std::process::Command::new("xsel")
+            .output()
+            .expect("failed to get shell output")
+    }
 
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -128,6 +133,7 @@ fn main() {
                         let ts = !*arc_translate_selected_text.lock().unwrap();
                         *arc_translate_selected_text.lock().unwrap() = ts;
                         let title = if ts { "On" } else { "Off" };
+                        xsel_command();
                         if let Err(err) =
                             item_handle
                                 .set_title(format!("Translate Selected Text ({title})"))
@@ -193,12 +199,7 @@ fn main() {
             let thread_win = window.clone();
             let app_handle = app.handle();
             thread::spawn(move || {
-                let xsel_command = move || -> std::process::Output {
-                    std::process::Command::new("xsel")
-                        .output()
-                        .expect("failed to get shell output")
-                };
-                let _consume_first_xsel_before_startup = xsel_command();
+                xsel_command(); // consume first xsel before startup
                 let script = "window.addEventListener('click', () => window.close());";
                 if let Ok(builder) = tauri::WindowBuilder::new(
                     &app_handle,
@@ -247,7 +248,6 @@ fn main() {
                             }
                             rdev::EventType::ButtonRelease(rdev::Button::Left) => {
                                 let xsel = xsel_command();
-                                println!("xsel ine{:?}", xsel);
                                 let xsel = String::from_utf8(xsel.stdout)
                                     .or(Err("something went wrong in xsel"));
                                 if let Ok(output) = xsel {
@@ -256,10 +256,10 @@ fn main() {
                                     )
                                     .unwrap_or(Some(String::new()))
                                     .unwrap_or("".to_string());
-                                    let output = output.trim().to_owned();
-                                    if output == "" || output == clip {
+                                    if output.trim() == "" || output == clip {
                                         return;
                                     }
+                                    let output = output.trim().to_owned();
                                     *clone_arc.lock().unwrap() = output;
                                     builder
                                         .set_position(PhysicalPosition {
@@ -269,6 +269,14 @@ fn main() {
                                         .and(builder.show())
                                         .unwrap();
                                 }
+                            }
+                            rdev::EventType::KeyRelease(rdev::Key::Escape) => {
+                                builder.hide().unwrap();
+                            }
+                            rdev::EventType::KeyRelease(rdev::Key::ShiftLeft)
+                            | rdev::EventType::KeyRelease(rdev::Key::ShiftRight) => {
+                                xsel_command(); // consume text selected using shift keys as it's better to ignore such selections.
+                                ()
                             }
                             _ => {}
                         }
