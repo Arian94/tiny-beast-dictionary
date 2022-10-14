@@ -11,6 +11,7 @@ mod helper;
 use google_translate::Translator;
 use helper::*;
 use ijson::IValue;
+use rdev::EventType::{ButtonRelease, KeyRelease, MouseMove, Wheel};
 use std::{
     fs,
     sync::{Arc, Mutex},
@@ -26,20 +27,20 @@ use tts_rust::GTTSClient;
 fn main() {
     let quit = CustomMenuItem::new("quit", "Quit");
     let show_hide = CustomMenuItem::new("show_hide", "Hide");
-    let mut clipboard = CustomMenuItem::new("clipboard".to_string(), "Translate Clipboard (On)");
+    let mut clipboard = CustomMenuItem::new("clipboard".to_string(), "Translate Clipboard (Off)");
     let mut selected_text_setting =
         CustomMenuItem::new("selected_text".to_string(), "Translate Selected Text (On)");
     let config_result = read_json_file::<IValue>(&find_absolute_path(
         CACHE_PATH_WITH_IDENTIFIER.to_string(),
         SETTINGS_FILENAME,
     ));
-    let arc_translate_clip = Arc::new(Mutex::new(true));
+    let arc_translate_clip = Arc::new(Mutex::new(false));
     let arc_translate_selected_text = Arc::new(Mutex::new(true));
     let listener_clone_translate_selected_text = Arc::clone(&arc_translate_selected_text);
     if let Ok(conf) = config_result.as_ref() {
         *arc_translate_clip.lock().unwrap() = conf
             .get("translateClipboard")
-            .unwrap_or(&IValue::TRUE)
+            .unwrap_or(&IValue::FALSE)
             .to_bool()
             .unwrap();
         *arc_translate_selected_text.lock().unwrap() = conf
@@ -68,7 +69,7 @@ fn main() {
         .add_item(show_hide)
         .add_submenu(setting_menu);
     let tray = SystemTray::new().with_menu(tray_menu);
-    fn xsel_command() -> std::process::Output {
+    fn consume_selected_text() -> std::process::Output {
         std::process::Command::new("xsel")
             .output()
             .expect("failed to get shell output")
@@ -133,7 +134,7 @@ fn main() {
                         let ts = !*arc_translate_selected_text.lock().unwrap();
                         *arc_translate_selected_text.lock().unwrap() = ts;
                         let title = if ts { "On" } else { "Off" };
-                        xsel_command();
+                        consume_selected_text();
                         if let Err(err) =
                             item_handle
                                 .set_title(format!("Translate Selected Text ({title})"))
@@ -196,10 +197,18 @@ fn main() {
                 Err(err) => eprintln!("config result error: {err}"),
             };
 
+            let is_input_focused = Arc::new(Mutex::new(true));
+            let clone_is_input_focused = Arc::clone(&is_input_focused);
+            window.listen("app_focus", move |ev| {
+                let is_focused = ev.payload().unwrap();
+                *is_input_focused.lock().unwrap() = if is_focused == "true" { true } else { false };
+                consume_selected_text();
+            });
+
             let thread_win = window.clone();
             let app_handle = app.handle();
             thread::spawn(move || {
-                xsel_command(); // consume first xsel before startup
+                consume_selected_text(); // consume first xsel before startup
                 let script = "window.addEventListener('click', () => window.close());";
                 if let Ok(builder) = tauri::WindowBuilder::new(
                     &app_handle,
@@ -209,11 +218,18 @@ fn main() {
                 .decorations(false)
                 .transparent(true)
                 .visible(false)
+                .always_on_top(true)
                 .initialization_script(script)
                 .position(0.0, 0.0)
                 .inner_size(35.0, 35.0)
                 .build()
                 {
+                    builder
+                        .set_max_size(Some(PhysicalSize {
+                            height: 35.0,
+                            width: 35.0,
+                        }))
+                        .unwrap();
                     let arc_op = Arc::new(Mutex::new("".to_string()));
                     let clone_arc = Arc::clone(&arc_op);
                     let b = builder.to_owned();
@@ -239,15 +255,17 @@ fn main() {
 
                     let mut mouse_position = PhysicalPosition { x: 0.0, y: 0.0 };
                     if let Err(err) = rdev::listen(move |ev| {
-                        if !*listener_clone_translate_selected_text.lock().unwrap() {
+                        if let MouseMove { x, y } = ev.event_type {
+                            mouse_position = PhysicalPosition { x, y };
+                        }
+                        if !*listener_clone_translate_selected_text.lock().unwrap()
+                            || *clone_is_input_focused.lock().unwrap()
+                        {
                             return;
                         }
                         match ev.event_type {
-                            rdev::EventType::MouseMove { x, y } => {
-                                mouse_position = PhysicalPosition { x, y };
-                            }
-                            rdev::EventType::ButtonRelease(rdev::Button::Left) => {
-                                let xsel = xsel_command();
+                            ButtonRelease(rdev::Button::Left) => {
+                                let xsel = consume_selected_text();
                                 let xsel = String::from_utf8(xsel.stdout)
                                     .or(Err("something went wrong in xsel"));
                                 if let Ok(output) = xsel {
@@ -270,13 +288,15 @@ fn main() {
                                         .unwrap();
                                 }
                             }
-                            rdev::EventType::KeyRelease(rdev::Key::Escape) => {
-                                builder.hide().unwrap();
-                            }
-                            rdev::EventType::KeyRelease(rdev::Key::ShiftLeft)
-                            | rdev::EventType::KeyRelease(rdev::Key::ShiftRight) => {
-                                xsel_command(); // consume text selected using shift keys as it's better to ignore such selections.
+                            KeyRelease(rdev::Key::ShiftLeft)
+                            | KeyRelease(rdev::Key::ShiftRight)
+                            | KeyRelease(rdev::Key::ControlLeft)
+                            | KeyRelease(rdev::Key::ControlRight) => {
+                                consume_selected_text(); // consume text selected using shift keys as it's better to ignore such selections.
                                 ()
+                            }
+                            KeyRelease(rdev::Key::Escape) | Wheel { .. } => {
+                                builder.hide().unwrap();
                             }
                             _ => {}
                         }

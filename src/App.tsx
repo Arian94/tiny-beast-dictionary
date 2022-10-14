@@ -1,6 +1,6 @@
 import { process } from '@tauri-apps/api';
 import { readText } from '@tauri-apps/api/clipboard';
-import { emit, listen, once, TauriEvent } from '@tauri-apps/api/event';
+import { emit, listen, once } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/tauri';
 import { appWindow, PhysicalPosition } from '@tauri-apps/api/window';
 import { MutableRefObject, useEffect, useRef, useState } from 'react';
@@ -43,7 +43,7 @@ function App() {
       ar: { percentage: NOT_DOWNLOADED, zipped: '20 MB', extracted: '429 MB', name: "Arabic", isBootUp: false },
     }
   );
-  const translateClipboard = useRef(true);
+  const translateClipboard = useRef(false);
   const _translateSelectedText = useRef(true);
   const isSpeaking = useRef(false);
   let clipboardBuffer: string | null;
@@ -89,8 +89,8 @@ function App() {
       to && setTo(to)
       selectedOfflineDict && setSelectedOfflineDict(selectedOfflineDict)
       downloadedDicts?.length && setDownloadedDicts(downloadedDicts)
-      translateClipboard.current = tc ?? true;
-      _translateSelectedText.current = ts ?? true;
+      translateClipboard.current = !!tc;
+      _translateSelectedText.current = !!ts ?? true;
     });
 
     emit('front_is_up');
@@ -125,12 +125,12 @@ function App() {
         emitNewConfig();
       });
 
-    const focusListener = listen<FocusEvent>(TauriEvent.WINDOW_FOCUS,
-      () => {
-        if (!translateClipboard.current) return;
-        readText().then(clip => readClipboard(clip))
-      }
-    );
+    const appFocus = appWindow.onFocusChanged(({ payload: isFocused }) => {
+      appWindow.emit('app_focus', isFocused);
+      if (!isFocused) return;
+      if (!translateClipboard.current) return;
+      readText().then(clip => readClipboard(clip));
+    });
 
     const downloadingListener = listen<DownloadStatus>('downloading', (msg) => {
       offlineDictsList[msg.payload.name].percentage = msg.payload.percentage;
@@ -139,14 +139,14 @@ function App() {
 
     const translateSelectedTextListener = listen<string>('text_selected', async ({ payload: text }) => {
       setInputVal(text);
-      await appWindow.hide();                                                 //* hiding and then showing to suppress the os notification when using window.unminimize()
+      await appWindow.hide();                                                 //* hiding and then showing to suppress the os notification when using appWindow.unminimize()
       const pos = await appWindow.outerPosition();
-      appWindow.setPosition(new PhysicalPosition(pos.x, pos.y - 36));         // neccessary as appWindow.show() forgets the position.
+      await appWindow.setPosition(new PhysicalPosition(pos.x, pos.y - 36));         // neccessary as appWindow.show() forgets the position.
       appWindow.show();
     });
 
     return () => {
-      focusListener.then(f => f());
+      appFocus.then(f => f());
       downloadingListener.then(d => d());
       translateSelectedTextListener.then(d => d());
       translateClipboardListener.then(d => d());
@@ -229,6 +229,7 @@ function App() {
   const handler = () => {
     if (!inputVal.trim()) return;
     setLoading(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     invokeBackend();
   };
 

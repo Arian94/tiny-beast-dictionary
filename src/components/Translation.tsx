@@ -38,6 +38,10 @@ export function Translation({
 
     useEffect(() => {
         inputRef.current?.addEventListener('keypress', inputSpeakHandler);
+
+        return () => {
+            inputRef.current?.removeEventListener('keypress', inputSpeakHandler);
+        }
     }, []);
 
     const renderOfflineTranslations = () => {
@@ -49,9 +53,9 @@ export function Translation({
                 <h3>Senses:</h3>
                 <div className={styles.senses}>
                     {translationRef.current.senses.map(s => {
-                        return <div key={s.glosses[0]}>
+                        return <div key={s.glosses.join('')}>
                             {!!s.categories?.length && <p key={s.categories[0].name}>Categories: {s.categories.map(c => c.name).join(", ")}</p>}
-                            <p >Glosses: {[...s.glosses]}</p>
+                            <p>Glosses: {s.glosses.join(' ')}</p>
                             {s.tags && <p>Tags: {s.tags.join(', ')}</p>}
                             {!!s.form_of?.length && <p >Form of: {s.form_of[0].word} </p>}
                             {!!s.alt_of?.length && <p >Alternative of: {s.alt_of[0].word} </p>}
