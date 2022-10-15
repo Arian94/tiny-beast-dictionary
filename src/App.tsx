@@ -90,7 +90,7 @@ function App() {
       selectedOfflineDict && setSelectedOfflineDict(selectedOfflineDict)
       downloadedDicts?.length && setDownloadedDicts(downloadedDicts)
       translateClipboard.current = !!tc;
-      _translateSelectedText.current = !!ts ?? true;
+      _translateSelectedText.current = ts ?? true;
     });
 
     emit('front_is_up');
