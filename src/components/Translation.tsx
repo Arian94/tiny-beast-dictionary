@@ -1,4 +1,4 @@
-import { createRef, MutableRefObject, useEffect } from 'react';
+import { createRef, MutableRefObject, useEffect, useMemo } from 'react';
 import { CountriesAbbrs } from '../types/countries';
 import { INIT_DICT, OfflineDictAbbrs, OfflineTranslation } from '../types/offline-mode';
 import styles from './Translation.module.scss';
@@ -85,6 +85,8 @@ export function Translation({
         )
     }
 
+    const offlineTranslations = useMemo(() => renderOfflineTranslations(), [translationRef.current]);
+
     return (
         <>
             <div className={styles.input}>
@@ -122,7 +124,7 @@ export function Translation({
                     >
                     </button>
                 </legend>
-                {typeof translationRef.current === 'string' ? translationRef.current : renderOfflineTranslations()}
+                {typeof translationRef.current === 'string' ? translationRef.current : offlineTranslations}
             </fieldset>
         </>
     );

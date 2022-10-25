@@ -1,4 +1,6 @@
-use reqwest;
+lazy_static! {
+    pub static ref CLIENT: reqwest::Client = reqwest::Client::builder().use_rustls_tls().build().unwrap();
+}
 
 pub struct Translator<'a> {
     pub to: &'a str,
@@ -16,8 +18,7 @@ async fn fetch_page(text: &str, from: &str, to: &str) -> Result<String, reqwest:
         "https://translate.google.com/m?tl={}&sl={}&q={}",
         to, from, text
     );
-
-    let content = reqwest::get(formatted_url).await?.text().await?;
+    let content = CLIENT.get(formatted_url).send().await?.text().await?;
     Ok(content)
 }
 

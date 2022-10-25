@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { CountriesAbbrs, CountriesNames, onlineDictionaries } from '../../types/countries';
 import styles from './OnlineTab.module.scss';
 
@@ -10,7 +11,7 @@ export function OnlineTab({
     to: CountriesAbbrs, setTo: React.Dispatch<React.SetStateAction<CountriesAbbrs>>,
     swapLang: () => void
 }) {
-    const langOptions = (option: 'from' | 'to') => {
+    const renderLangOptions = (option: 'from' | 'to') => {
         const ops: JSX.IntrinsicElements['option'][] = [];
         (Object.keys(onlineDictionaries) as CountriesNames[])
             .filter(country => option === 'from' ? to !== onlineDictionaries[country] : from !== onlineDictionaries[country])
@@ -20,6 +21,9 @@ export function OnlineTab({
         return ops
     }
 
+    const fromOptions = useMemo(() => renderLangOptions('from'), [from, to]);
+    const toOptions = useMemo(() => renderLangOptions('to'), [from, to]);
+
     return (
         <div className={styles.languageOptions}>
             <div className={styles.from}>
@@ -27,7 +31,7 @@ export function OnlineTab({
                 <select key="from" value={from} onChange={event => setFrom(event.target.value as CountriesAbbrs)}>
                     <option value="auto">Detect</option>
                     <>
-                        {langOptions('from')}
+                        {fromOptions}
                     </>
                 </select>
             </div>
@@ -38,7 +42,7 @@ export function OnlineTab({
                 <span>to</span>
                 <select key="to" value={to} onChange={event => setTo(event.target.value as CountriesAbbrs)}>
                     <>
-                        {langOptions('to')}
+                        {toOptions}
                     </>
                 </select>
             </div>

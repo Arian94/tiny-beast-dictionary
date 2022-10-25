@@ -26,14 +26,6 @@
         "all": false,
         "exit": true
       },
-      "fs": {
-        "all": false,
-        "writeFile": true,
-        "readFile": true,
-        "createDir": true,
-        "readDir": true,
-        "removeFile": false
-      },
       "clipboard": {
         "all": false,
         "readText": true

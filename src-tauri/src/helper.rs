@@ -1,3 +1,4 @@
+use crate::google_translate::CLIENT;
 use futures_util::StreamExt;
 use ijson::IObject;
 use serde::de::DeserializeOwned;
@@ -11,7 +12,7 @@ use std::{
     sync::{mpsc, Arc, Mutex},
     thread,
 };
-use tauri::{async_runtime::block_on, regex::Regex};
+use tauri::regex::Regex;
 use xz::read::XzDecoder;
 
 pub static JSON_DIR: &str = "json_dictionaries";
@@ -179,11 +180,7 @@ fn rectify_incorrect_string(
         })
         .name;
 
-    let dict_file = File::options()
-        .create(true)
-        .append(true)
-        .open(&file_path)
-        .unwrap();
+    let dict_file = File::create(&file_path)?;
     let dict_file_arc = Arc::new(Mutex::new(dict_file));
     let counter_arc = Arc::new(Mutex::new(0));
 
@@ -273,7 +270,6 @@ where
 pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), String> {
     let once_abbr = abbr.to_owned();
     let (t_once_x, r_once_x) = mpsc::channel::<bool>();
-    let win_arc = Arc::new(Mutex::new(window.to_owned()));
     let ev_han = window.listen("cancel_download", move |event| {
         if event.payload().unwrap() == once_abbr {
             if let Err(e) = t_once_x.send(true) {
@@ -282,52 +278,18 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
         }
     });
     let value = OFFLINE_DICTS.get(&abbr).unwrap();
-    let res = reqwest::get(value.url)
+    let res = CLIENT
+        .get(value.url)
+        .send()
         .await
-        .or(Err("connection error".to_string()))?;
+        .or(Err("connection error"))?;
     let total_size = res
         .content_length()
         .unwrap_or(value.length_mb * 1024 * 1024);
     let mut stream = res.bytes_stream();
-    let (tx, rx) = mpsc::channel::<i8>();
     let tarxz_path = format!("{}/{}.tar.xz", CACHE_PATH_WITH_IDENTIFIER.to_string(), abbr);
-    let tarxz_path_th = tarxz_path.clone();
-    if fs::metadata(&tarxz_path).is_ok() {
-        fs::remove_file(&tarxz_path).or(Err("error in deleting corrupted zip file".to_string()))?;
-    }
-    let mut tarxz_dict_file = File::options()
-        .create(true)
-        .append(true)
-        .open(&tarxz_path)
-        .unwrap();
-    std::thread::spawn::<_, Result<(), &str>>(move || {
-        let mut downloaded: u64 = 0;
-        'blocking_while: while let Some(item) = block_on(stream.next()) {
-            if let Ok(cancel_dl) = r_once_x.try_recv() {
-                if cancel_dl {
-                    win_arc.lock().unwrap().unlisten(ev_han);
-                    fs::remove_file(tarxz_path_th).or(Err("error in deleting zip file"))?;
-                    tx.send(-1).or(Err("error in sending cancel message"))?;
-                    break 'blocking_while;
-                }
-            }
-            let chunk = item.or(Err("error while downloading file"))?;
-            tarxz_dict_file
-                .write_all(&chunk)
-                .or(Err("error in writing chunk"))?;
-            let len = chunk.len() as u64;
-            let new_percentage = (downloaded + len) * 100 / total_size;
-            downloaded += len;
-            tx.send(new_percentage as i8)
-                .or(Err("error in sending message"))?;
-            if new_percentage == 100 {
-                break 'blocking_while;
-            }
-        }
-        Ok(())
-    });
-    let now = std::time::Instant::now();
-    let mut dur = std::time::Duration::new(2, 0);
+    let mut tarxz_dict_file = File::create(&tarxz_path).or(Err("error in creating tar.xz file"))?;
+    let mut downloaded: u64 = 0;
     let emit_dl_status = |p: i8, _print_msg: &str| -> Result<(), String> {
         // eprintln!("{_print_msg} {p}%");
         window
@@ -341,40 +303,41 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
             .or(Err("error in emitting payload"))?;
         Ok(())
     };
+    let now = std::time::Instant::now();
+    let mut dur = std::time::Duration::new(2, 0);
 
-    'state_loop: loop {
-        match rx.recv() {
-            Ok(percentage) => {
-                if percentage == -1 {
-                    return Err("download canceled".to_string());
-                }
-                if dur > now.elapsed() {
-                    continue;
-                }
-                emit_dl_status(percentage, &format!("downloading {abbr}")).unwrap();
-                dur = std::time::Duration::from_secs(dur.as_secs() + 2);
-            }
-            Err(e) => {
-                eprintln!("error: {e}");
-                if !e.to_string().contains("closed channel") {
-                    return Err("something went wrong".to_string());
-                }
-                emit_dl_status(99, &format!("wait {abbr}")).unwrap();
-                break 'state_loop;
+    emit_dl_status(0, &format!("downloading {abbr}")).unwrap(); // download started.
+    while let Some(Ok(chunk)) = stream.next().await {
+        if let Ok(cancel_dl) = r_once_x.try_recv() {
+            if cancel_dl {
+                window.unlisten(ev_han);
+                fs::remove_file(tarxz_path).or(Err("error in deleting zip file"))?;
+                return Err("download canceled".to_string());
             }
         }
+        tarxz_dict_file
+            .write_all(&chunk)
+            .or(Err("error in writing chunk"))?;
+        let len = chunk.len() as u64;
+        let new_percentage = (downloaded + len) * 100 / total_size;
+        downloaded += len;
+        if dur > now.elapsed() {
+            continue;
+        }
+        emit_dl_status(new_percentage as i8, &format!("downloading {abbr}")).unwrap();
+        dur = std::time::Duration::from_secs(dur.as_secs() + 2);
     }
+    emit_dl_status(100, &format!("downloading {abbr}")).unwrap(); // download finished.
 
     let mut abs_json_dir = find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), JSON_DIR);
     if fs::metadata(&abs_json_dir).is_err() {
-        fs::create_dir_all(&abs_json_dir)
-            .or(Err("error while creating nested directory.".to_string()))?;
+        fs::create_dir_all(&abs_json_dir).or(Err("error while creating nested directory."))?;
     }
     let file = File::open(&tarxz_path).unwrap();
     let decompressor = XzDecoder::new(file);
     tar::Archive::new(decompressor)
         .unpack(&abs_json_dir)
-        .or(Err("error in unpacking".to_string()))?;
+        .or(Err("error in unpacking"))?;
     let incorrect_file_path = format!("{abs_json_dir}/incorrect_{abbr}.json");
     let mut unpacked_file =
         File::open(&incorrect_file_path).or(Err("error in reading unpacked file"))?;
@@ -384,8 +347,8 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     if let Err(e) = rectify_incorrect_string(&contents, abbr, &abs_json_dir) {
         return Err(e.to_string());
     }
-    fs::remove_file(tarxz_path).or(Err("error in deleting zip file".to_string()))?;
-    fs::remove_file(incorrect_file_path).or(Err("error in deleting incorrect file".to_string()))?;
+    fs::remove_file(tarxz_path).or(Err("error in deleting zip file"))?;
+    fs::remove_file(incorrect_file_path).or(Err("error in deleting incorrect file"))?;
     println!("downloaded: {abbr}");
     Ok(())
 }
@@ -540,63 +503,3 @@ mod tests {
         assert_eq!(c.unwrap(), ());
     }
 }
-
-// #[derive(Debug, Clone)]
-// struct EtymologyTemplate {
-//     name: String,
-//     expansion: String,
-// }
-
-// #[derive(Debug, Clone)]
-// struct Category {
-//     name: Option<String>,
-// }
-
-// #[derive(Debug, Clone)]
-// struct FormOf {
-//     word: String,
-// }
-
-// #[derive(Debug, Clone)]
-// struct Example {
-//     text: String,
-//     r#ref: String,
-//     english: Option<String>,
-//     r#type: String,
-// }
-
-// #[derive(Debug, Clone)]
-// struct Sense {
-//     categories: Vec<Category>,
-//     glosses: Vec<String>,
-//     tags: Option<Vec<String>>,
-//     form_of: Option<FormOf>,
-//     examples: Option<Vec<Example>>,
-// }
-
-// #[derive(Debug, Clone)]
-// struct Forms {
-//     form: String,
-//     tags: Vec<String>,
-// }
-
-// #[derive(Debug, Clone)]
-// struct Sound {
-//     ipa: String,
-//     tags: Option<Vec<String>>,
-//     homophone: Option<String>,
-// }
-
-// #[derive(Debug, Clone)]
-// pub struct OfflineTranslation {
-//     etymology_text: Option<String>,
-//     etymology_templates: Option<Vec<EtymologyTemplate>>,
-//     senses: Vec<Sense>,
-//     pos: String,
-//     related: Vec<FormOf>,
-//     forms: Option<Forms>,
-//     sounds: Vec<Sound>,
-//     lang: String,
-//     lang_code: String,
-//     wikipedia: Option<Vec<String>>,
-// }

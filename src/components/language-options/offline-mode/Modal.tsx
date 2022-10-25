@@ -2,14 +2,15 @@
 import { invoke } from "@tauri-apps/api";
 import { emit } from "@tauri-apps/api/event";
 import { appWindow } from '@tauri-apps/api/window';
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { cancelIcon, deleteIcon, downloadIcon } from "../../../assets/images";
 import { OfflineDictAbbrs, OfflineDictsList } from "../../../types/offline-mode";
 import styles from "./Modal.module.scss";
 
-export const NOT_DOWNLOADED = -1;
-const WAIT_FOR_PROCESSING = 99;
-const DOWNLOADED = 100;
+export const NOT_DOWNLOADED = -2;
+const DOWNLOAD_STARTED = -1;
+const WAIT_FOR_PROCESSING = 100;
+const DOWNLOADED = 101;
 
 export const Modal: React.FC<{
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -45,7 +46,7 @@ export const Modal: React.FC<{
           .catch(e => console.error(e))
       } else if (offlineDictsList[abbr].percentage === NOT_DOWNLOADED) {  //* to download
         // console.log('download for', abbr, 'started');
-        offlineDictsList[abbr].percentage = 0;
+        offlineDictsList[abbr].percentage = DOWNLOAD_STARTED;
         setOfflineDictsList({ ...offlineDictsList });
         invoke<void>('download_dict', { abbr, appWindow })
           .then(() => {
@@ -59,7 +60,7 @@ export const Modal: React.FC<{
             offlineDictsList[abbr].percentage = DOWNLOADED;
           })
           .catch(possibleErrOrCancelation => {
-            console.error(possibleErrOrCancelation)
+            console.error('error for', abbr, possibleErrOrCancelation)
             offlineDictsList[abbr].percentage = NOT_DOWNLOADED;
           })
           .finally(() => setOfflineDictsList({ ...offlineDictsList }));
@@ -77,27 +78,32 @@ export const Modal: React.FC<{
             <div key={abbr} className={styles.dict}>
               <span>{dict.name} <small>(Z: {dict.zipped}, E: {dict.extracted})</small></span>
               <div className={styles.download}>
-                {dict.percentage !== -1 && dict.percentage !== 100 && <span>{dict.percentage === 99 ? <h6>processing</h6> : `${dict.percentage}%`}</span>}
+                {dict.percentage !== NOT_DOWNLOADED && dict.percentage !== DOWNLOADED &&
+                  <span>
+                    {dict.percentage === WAIT_FOR_PROCESSING ? <h6>processing</h6> : dict.percentage === DOWNLOAD_STARTED ? <h6>initializing</h6> : `${dict.percentage}%`}
+                  </span>
+                }
                 <button
                   disabled={dict.percentage === WAIT_FOR_PROCESSING}
                   style={{
                     backgroundImage: `url(${dlStatusIcon})`,
-                    backgroundSize: true ? '20px' : '25px',
+                    backgroundSize: '20px',
                     opacity: dict.percentage === WAIT_FOR_PROCESSING ? '0.5' : '',
                     cursor: dict.percentage === WAIT_FOR_PROCESSING ? 'default' : '',
                   }}
-                  onClick={() => downloadCancelDelete(abbr)}
-                ></button>
+                  onClick={() => downloadCancelDelete(abbr)}>
+                </button>
               </div>
             </div>
           )
         })
     }
 
+    const langs = useMemo(() => langOptions(), [offlineDictsList]);
+
     return (
       <>
         <div className={styles.darkBG} onClick={() => setIsOpen(false)} />
-
         <div className={styles.modal}>
           <div className={styles.modalHeader}>
             <h4 className={styles.heading}>Resources</h4>
@@ -113,7 +119,7 @@ export const Modal: React.FC<{
             </div>
             <div className={styles.scroller}>
               <>
-                {langOptions()}
+                {langs}
               </>
             </div>
           </div>
