@@ -29,7 +29,6 @@ function App() {
   const [downloadedDicts, setDownloadedDicts] = useState<OfflineDictAbbrs[]>([]);
   const selectedOfflineDictRef = useRef<OfflineDictAbbrs>();
   const downloadedDictsRef = useRef<OfflineDictAbbrs[]>([]);
-  const isOverlappingReqEmitted = useRef(false);
   const [offlineDictsList, setOfflineDictsList] = useState<OfflineDictsList>(
     {
       en: { percentage: NOT_DOWNLOADED, zipped: '94 MB', extracted: '621 MB', name: "English", isBootUp: false },
@@ -46,7 +45,7 @@ function App() {
   const translateClipboard = useRef(false);
   const _translateSelectedText = useRef(true);
   const isSpeaking = useRef(false);
-  let clipboardBuffer: string | null;
+  let clipboardBuffer: string;
 
   const setRefCurrent = (ref: MutableRefObject<string | OfflineTranslation>, value: string | OfflineTranslation) => {
     ref.current = value
@@ -84,11 +83,11 @@ function App() {
 
   useEffect(() => {
     once<SavedConfig>('get_saved_config', ({ payload: { activeTab, from, to, selectedOfflineDict, downloadedDicts, translateClipboard: tc, translateSelectedText: ts } }) => {
-      activeTab && setActiveTab(activeTab as 'online' | 'offline')
-      from && setFrom(from)
-      to && setTo(to)
-      selectedOfflineDict && setSelectedOfflineDict(selectedOfflineDict)
-      downloadedDicts?.length && setDownloadedDicts(downloadedDicts)
+      activeTab && setActiveTab(activeTab as 'online' | 'offline');
+      from && setFrom(from);
+      to && setTo(to);
+      selectedOfflineDict && setSelectedOfflineDict(selectedOfflineDict);
+      downloadedDicts?.length && setDownloadedDicts(downloadedDicts);
       translateClipboard.current = !!tc;
       _translateSelectedText.current = ts ?? true;
     });
@@ -115,8 +114,8 @@ function App() {
       setInputVal(trimmed);
     }
 
-    // // run readText once to store/read clipboard content which may exist before opening the app. 
-    // readText().then(clip => readClipboard(clip))
+    // run readText once to store/read clipboard content which may exist before opening the app. 
+    readText().then(clip => clipboardBuffer = clip ?? '');
 
     const translateClipboardListener = listen<boolean[]>('tray_settings',
       ({ payload }) => {
@@ -167,22 +166,15 @@ function App() {
   }, [downloadedDicts]);
 
   useEffect(() => {
-    if (loading)
-      isOverlappingReqEmitted.current = true;
-
     const timeOutId = setTimeout(() => handler(), 700);
     return () => clearTimeout(timeOutId);
   }, [inputVal]);
 
   useEffect(() => {
     fromRef.current = from;
-    setTimeout(() => handler(), 0);
-  }, [from]);
-
-  useEffect(() => {
     toRef.current = to;
     setTimeout(() => handler(), 0);
-  }, [to]);
+  }, [from, to]);
 
   const swapLang = () => {
     setFrom(to);
@@ -217,13 +209,8 @@ function App() {
     } catch (er: any) {
       translationVal = er;
     }
-
-    if (isOverlappingReqEmitted.current)
-      isOverlappingReqEmitted.current = false;
-    else {
-      setRefCurrent(translationRef, translationVal)
-      setLoading(false)
-    }
+    setRefCurrent(translationRef, translationVal)
+    setLoading(false)
   }
 
   const handler = () => {
