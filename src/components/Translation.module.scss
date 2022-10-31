@@ -12,9 +12,8 @@
     height: 22px;
     width: 30px;
     top: 2px;
-    background: url(../assets/speaker_icon.svg) no-repeat center;
-    background-color: transparent;
-    background-size: 20px;
+    background: url(../assets/speaker.svg) no-repeat center;
+    background-size: 20px !important;
     border-radius: 6px;
 
     &:active {
@@ -23,6 +22,26 @@
 
     &:disabled {
       background-color: transparent;
+    }
+  }
+
+  .searchErase {
+    position: absolute;
+    display: flex;
+    top: 2px;
+
+    button {
+      position: static;
+      background-color: rgb(255, 255, 255, .7) !important;
+
+      &:first-of-type {
+        background: url(../assets/erase.svg) no-repeat center;
+      }
+
+      &:last-of-type {
+        background-size: 15px !important;
+        background: url(../assets/search.svg) no-repeat center;
+      }
     }
   }
 }
@@ -61,7 +80,7 @@ fieldset {
     min-width: 30px;
     top: -3px;
     right: 10px;
-    background: url(../assets/speaker_icon.svg) no-repeat center;
+    background: url(../assets/speaker.svg) no-repeat center;
     background-color: white;
     background-size: 20px;
     border-radius: 15px;

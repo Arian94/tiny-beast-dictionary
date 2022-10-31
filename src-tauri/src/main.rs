@@ -11,7 +11,10 @@ mod helper;
 use google_translate::Translator;
 use helper::*;
 use ijson::IValue;
-use rdev::EventType::{ButtonRelease, KeyRelease, MouseMove, Wheel};
+use rdev::{
+    EventType::{ButtonRelease, KeyRelease, MouseMove, Wheel},
+    Key::{Backspace, ControlLeft, ControlRight, Escape, ShiftLeft, ShiftRight},
+};
 use std::{
     fs,
     sync::{Arc, Mutex},
@@ -288,14 +291,14 @@ fn main() {
                                         .unwrap();
                                 }
                             }
-                            KeyRelease(rdev::Key::ShiftLeft)
-                            | KeyRelease(rdev::Key::ShiftRight)
-                            | KeyRelease(rdev::Key::ControlLeft)
-                            | KeyRelease(rdev::Key::ControlRight) => {
+                            KeyRelease(ShiftLeft)
+                            | KeyRelease(ShiftRight)
+                            | KeyRelease(ControlLeft)
+                            | KeyRelease(ControlRight) => {
                                 consume_selected_text(); // consume text selected using shift keys as it's better to ignore such selections.
                                 ()
                             }
-                            KeyRelease(rdev::Key::Escape) | Wheel { .. } => {
+                            KeyRelease(Escape) | KeyRelease(Backspace) | Wheel { .. } => {
                                 builder.hide().unwrap();
                             }
                             _ => {}
@@ -314,7 +317,7 @@ fn main() {
 #[tauri::command]
 async fn offline_translate(word: &str, lang: &str) -> Result<IValue, String> {
     let selected_lang;
-    let word = word.to_lowercase();
+    let word = word.trim().to_lowercase();
 
     match lang {
         "en" => selected_lang = EN_DICT.as_ref(),

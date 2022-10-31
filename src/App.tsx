@@ -13,7 +13,11 @@ import { CountriesAbbrs, SavedConfig } from './types/countries';
 import { INIT_DICT, OfflineDictAbbrs, OfflineDictsList, OfflineTranslation } from './types/offline-mode';
 
 type DownloadStatus = { name: OfflineDictAbbrs; percentage: number };
-
+//todo improve input ---> done
+//todo add themes
+//todo fix the save config --> done?
+//todo trim word in offline mode ---> done
+//todo add backspace to hide text translation icon ---> done
 function App() {
   const [inputVal, setInputVal] = useState("");
   const [activeTab, setActiveTab] = useState<'online' | 'offline'>('online');
@@ -51,13 +55,6 @@ function App() {
     ref.current = value
   }
 
-  function translationSpeakHandler(e: KeyboardEvent) {
-    if (!translationRef.current) return;
-    if (toRef.current === 'fa') return;
-    if (e.code !== 'Enter' || !e.ctrlKey) return;
-    if (activeTabRef.current === 'offline') return;
-    speak(translationRef.current as string, toRef.current);
-  }
 
   async function emitNewConfig(selectedOfflineDict?: OfflineDictAbbrs | null, downloadedDicts?: OfflineDictAbbrs[]) {
     const { x, y } = await appWindow.outerPosition();
@@ -92,16 +89,16 @@ function App() {
       _translateSelectedText.current = ts ?? true;
     });
 
+    function translationSpeakHandler(e: KeyboardEvent) {
+      if (!translationRef.current) return;
+      if (toRef.current === 'fa') return;
+      if (e.code !== 'Enter' || !e.ctrlKey) return;
+      if (activeTabRef.current === 'offline') return;
+      speak(translationRef.current as string, toRef.current);
+    }
+
     emit('front_is_up');
-
-    appWindow.onCloseRequested(e => {
-      e.preventDefault();
-      once("config_saved", () => setTimeout(() => process.exit(), 250));
-      emitNewConfig();
-    });
-
-    once('quit', () => emitNewConfig())
-
+    once('quit', () => emitNewConfig());
     window.addEventListener('keypress', translationSpeakHandler);
 
     const readClipboard = (clip: string | null) => {
@@ -144,11 +141,19 @@ function App() {
       appWindow.show();
     });
 
+    const closeApp = appWindow.onCloseRequested(e => {
+      e.preventDefault();
+      once("config_saved", () => setTimeout(() => process.exit(), 250));
+      emitNewConfig();
+    });
+
     return () => {
+      window.removeEventListener('keypress', translationSpeakHandler)
       appFocus.then(f => f());
       downloadingListener.then(d => d());
       translateSelectedTextListener.then(d => d());
       translateClipboardListener.then(d => d());
+      closeApp.then(d => d());
     }
   }, []);
 
@@ -257,7 +262,7 @@ function App() {
 
         <button disabled={translationRef.current === INIT_DICT} className={styles.modeChanger} title={`Go ${activeTab === 'online' ? 'offline' : 'online'}`}
           style={{ filter: activeTab === 'online' ? 'grayscale(0)' : 'grayscale(.8)' }}
-          onClick={() => { activeTab === "online" ? setActiveTab('offline') : setActiveTab('online'); setRefCurrent(translationRef, ''); setInputVal('') }}>
+          onClick={() => { setRefCurrent(translationRef, ''); setActiveTab(activeTab === "online" ? 'offline' : 'online'); }}>
         </button>
       </div>
 
@@ -272,6 +277,7 @@ function App() {
         setInputVal={setInputVal}
         loading={loading}
         speak={speak}
+        handler={handler}
       />
     </div>
   )

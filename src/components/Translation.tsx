@@ -1,6 +1,6 @@
 import { createRef, MutableRefObject, useEffect, useMemo } from 'react';
 import { CountriesAbbrs } from '../types/countries';
-import { INIT_DICT, OfflineDictAbbrs, OfflineTranslation } from '../types/offline-mode';
+import { INIT_DICT as INIT_DICT_MSG, OfflineDictAbbrs, OfflineTranslation } from '../types/offline-mode';
 import styles from './Translation.module.scss';
 
 export function Translation({
@@ -12,7 +12,8 @@ export function Translation({
     translationRef,
     inputVal,
     setInputVal,
-    loading
+    loading,
+    handler
 }: {
     activeTabRef: MutableRefObject<"online" | "offline">,
     fromRef: MutableRefObject<CountriesAbbrs | "auto">,
@@ -22,7 +23,8 @@ export function Translation({
     translationRef: MutableRefObject<string | OfflineTranslation>,
     inputVal: string,
     setInputVal: React.Dispatch<React.SetStateAction<string>>,
-    loading: boolean
+    loading: boolean,
+    handler: () => void
 }) {
     function inputSpeakHandler(this: HTMLInputElement, e: KeyboardEvent) {
         if (e.code !== 'Enter') return;
@@ -35,12 +37,15 @@ export function Translation({
     }
 
     const inputRef = createRef<HTMLInputElement>();
+    function focusInHandler(this: HTMLInputElement) { setTimeout(() => this.select()) }
 
     useEffect(() => {
         inputRef.current?.addEventListener('keypress', inputSpeakHandler);
+        inputRef.current?.addEventListener('focusin', focusInHandler);
 
         return () => {
             inputRef.current?.removeEventListener('keypress', inputSpeakHandler);
+            inputRef.current?.removeEventListener('focusin', focusInHandler);
         }
     }, []);
 
@@ -87,28 +92,46 @@ export function Translation({
 
     const offlineTranslations = useMemo(() => renderOfflineTranslations(), [translationRef.current]);
 
+    const isLatin = useMemo(() => (function () {
+        return (activeTabRef.current === 'online' && fromRef.current !== 'fa' && fromRef.current !== 'ar') ||
+            (activeTabRef.current === 'offline' && selectedOfflineDictRef.current !== 'fa' && selectedOfflineDictRef.current !== 'ar');
+    })(), [activeTabRef.current, fromRef.current, selectedOfflineDictRef.current]);
+
+    const isFa = useMemo(() => (function () {
+        return (activeTabRef.current === 'online' && fromRef.current === 'fa') || (activeTabRef.current === 'offline' && selectedOfflineDictRef.current === 'fa');
+    })(), [activeTabRef.current, fromRef.current, selectedOfflineDictRef.current]);
+
     return (
         <>
             <div className={styles.input}>
-                <input ref={inputRef} autoFocus maxLength={256} disabled={translationRef.current === INIT_DICT}
-                    placeholder={(activeTabRef.current === 'online' && fromRef.current === 'fa') || (activeTabRef.current === 'offline' && selectedOfflineDictRef.current === 'fa') ? 'جستجو...' : 'search...'}
+                <input ref={inputRef} autoFocus maxLength={256} disabled={translationRef.current === INIT_DICT_MSG}
+                    placeholder={isFa ? 'جستجو...' : 'search...'}
                     value={inputVal} onInput={event => setInputVal(event.currentTarget.value)}
                     style={{
-                        direction: (activeTabRef.current === 'online' && (fromRef.current === 'fa' || fromRef.current === 'ar')) || (activeTabRef.current === 'offline' && (selectedOfflineDictRef.current === 'fa' || selectedOfflineDictRef.current === 'ar')) ? 'rtl' : 'ltr',
-                        fontFamily: (activeTabRef.current === 'online' && (fromRef.current === 'fa' || fromRef.current === 'ar')) || (activeTabRef.current === 'offline' && (selectedOfflineDictRef.current === 'fa' || selectedOfflineDictRef.current === 'ar')) ? 'Noto Naskh' : 'inherit',
-                        fontSize: (activeTabRef.current === 'online' && (fromRef.current === 'fa' || fromRef.current === 'ar')) || (activeTabRef.current === 'offline' && (selectedOfflineDictRef.current === 'fa' || selectedOfflineDictRef.current === 'ar')) ? '15px' : ''
+                        direction: isLatin ? 'ltr' : 'rtl',
+                        fontFamily: isLatin ? 'inherit' : 'Noto Naskh',
+                        fontSize: isLatin ? '' : '15px'
                     }} />
                 <button
                     title="Press Enter"
                     onClick={() => speak(inputVal, activeTabRef.current === 'online' ? fromRef.current : selectedOfflineDictRef.current || 'auto')}
                     style={{
-                        opacity: !inputVal || (activeTabRef.current === 'online' && fromRef.current === 'fa') || (activeTabRef.current === 'offline' && selectedOfflineDictRef.current === 'fa') ? .5 : 1,
-                        left: (activeTabRef.current === 'online' && fromRef.current !== 'fa' && fromRef.current !== 'ar') || (activeTabRef.current === 'offline' && selectedOfflineDictRef.current !== 'fa' && selectedOfflineDictRef.current !== 'ar') ? '2px' : 'unset',
-                        right: (activeTabRef.current === 'online' && fromRef.current !== 'fa' && fromRef.current !== 'ar') || (activeTabRef.current === 'offline' && selectedOfflineDictRef.current !== 'fa' && selectedOfflineDictRef.current !== 'ar') ? 'unset' : '2px',
-                        transform: (activeTabRef.current === 'online' && (fromRef.current === 'fa' || fromRef.current === 'ar')) || (activeTabRef.current === 'offline' && (selectedOfflineDictRef.current === 'fa' || selectedOfflineDictRef.current === 'ar')) ? 'scaleX(-1)' : 'unset'
+                        opacity: !inputVal || isFa ? .5 : 1,
+                        left: isLatin ? '2px' : 'unset',
+                        right: isLatin ? 'unset' : '2px',
+                        transform: isLatin ? 'unset' : 'scaleX(-1)'
                     }}
-                    disabled={!inputVal || (activeTabRef.current === 'online' && fromRef.current === 'fa') || (activeTabRef.current === 'offline' && selectedOfflineDictRef.current === 'fa')}>
+                    disabled={!inputVal || isFa}>
                 </button>
+                <div className={styles.searchErase}
+                    style={{
+                        flexFlow: isLatin ? 'row wrap' : 'row-reverse wrap',
+                        left: isLatin ? 'unset' : '2px',
+                        right: isLatin ? '2px' : 'unset'
+                    }}>
+                    <button onClick={() => setInputVal('')}></button>
+                    <button onClick={handler}></button>
+                </div>
             </div>
             <fieldset className={styles.translation}
                 style={{
