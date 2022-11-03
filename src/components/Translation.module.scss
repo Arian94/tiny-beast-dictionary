@@ -3,21 +3,23 @@
 
   input {
     width: -webkit-fill-available;
-    height: 20px;
     padding-inline-start: 28px;
+
+    &::placeholder {
+      padding-inline-start: 2px;
+    }
   }
 
   button {
     position: absolute;
-    height: 22px;
-    width: 30px;
-    top: 2px;
+    height: 100%;
+    width: 28px;
     background: url(../assets/speaker.svg) no-repeat center;
     background-size: 20px !important;
-    border-radius: 6px;
+    border-radius: inherit;
 
     &:active {
-      background-color: rgb(190, 194, 255);
+      background-color: rgb(var(--secondary), .2);
     }
 
     &:disabled {
@@ -28,38 +30,42 @@
   .searchErase {
     position: absolute;
     display: flex;
-    top: 2px;
+    height: 100%;
+    top: 0;
+    gap: 1px;
 
     button {
-      position: static;
-      background-color: rgb(255, 255, 255, .7) !important;
+      position: relative;
+      background-color: rgba(255, 255, 255, .03);
+      background-repeat: no-repeat;
+      background-position: center;
 
       &:first-of-type {
-        background: url(../assets/erase.svg) no-repeat center;
+        background-size: 18px !important;
+        background-image: url(../assets/search.svg);
       }
 
       &:last-of-type {
-        background-size: 15px !important;
-        background: url(../assets/search.svg) no-repeat center;
+        background-image: url(../assets/erase.svg);
       }
     }
   }
 }
 
-fieldset {
+.translation {
   position: relative;
   display: flex;
   font-family: 'Noto Naskh';
   word-break: break-all;
   line-height: 20px;
-  min-height: calc(100% - 115px);
+  min-height: 140px;
   justify-content: space-between;
   padding-block-start: 8px;
   padding-inline: 4px;
-  margin-block: 1rem;
+  margin-block: 1rem .3rem;
   margin-inline: 0;
-  background-color: rgba(166, 214, 240, 0.1);
-  border: 1px solid rgb(63, 63, 117);
+  background-color: rgba(var(--primary), .3);
+  border: 1px solid rgba(blueviolet, .3);
   border-radius: 5px;
   -webkit-user-select: text;
   user-select: text;
@@ -67,11 +73,11 @@ fieldset {
   legend {
     direction: ltr;
     position: absolute;
+    font-size: 10px;
     width: 100%;
     top: -.7rem;
     left: 2px;
     background-color: transparent;
-    font-size: 10px;
   }
 
   button {
@@ -81,13 +87,12 @@ fieldset {
     top: -3px;
     right: 10px;
     background: url(../assets/speaker.svg) no-repeat center;
-    background-color: white;
+    background-color: rgba(var(--secondary), .5);
     background-size: 20px;
     border-radius: 15px;
-    opacity: .7;
 
     &:active {
-      background-color: rgb(190, 194, 255);
+      background-color: rgba(var(--secondary), .7) !important;
     }
   }
 
@@ -121,6 +126,16 @@ fieldset {
       hr {
         border: 1px dashed pink;
       }
+    }
+  }
+}
+
+[theme=light] {
+
+  .input,
+  .translation {
+    button:active {
+      background-color: rgb(var(--tertiary));
     }
   }
 }

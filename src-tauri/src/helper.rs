@@ -36,15 +36,15 @@ lazy_static! {
     static ref IDENTIFIER: String = format!("{}", tauri::generate_context!().config().tauri.bundle.identifier);
     static ref CACHE_PATH_BUF: PathBuf = tauri::api::path::cache_dir().unwrap();
     pub static ref CACHE_PATH_WITH_IDENTIFIER: String = format!("{}/{}", CACHE_PATH_BUF.to_str().unwrap(), IDENTIFIER.to_string());
-    pub static ref EN_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/en"))).or(Err(format!("error occurred for en dict")));
-    pub static ref FR_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/fr"))).or(Err(format!("error occurred for fr dict")));
-    pub static ref DE_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/de"))).or(Err(format!("error occurred for de dict")));
-    pub static ref ES_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/es"))).or(Err(format!("error occurred for es dict")));
-    pub static ref IT_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/it"))).or(Err(format!("error occurred for it dict")));
-    pub static ref FA_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/fa"))).or(Err(format!("error occurred for fa dict")));
-    pub static ref PT_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/pt"))).or(Err(format!("error occurred for pt dict")));
-    pub static ref ZH_CN_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/zh-CN"))).or(Err(format!("error occurred for zh-CN dict")));
-    pub static ref AR_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), &format!("{JSON_DIR}/ar"))).or(Err(format!("error occurred for ar dict")));
+    pub static ref EN_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(&CACHE_PATH_WITH_IDENTIFIER, &format!("{JSON_DIR}/en"))).or(Err(format!("error occurred for en dict")));
+    pub static ref FR_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(&CACHE_PATH_WITH_IDENTIFIER, &format!("{JSON_DIR}/fr"))).or(Err(format!("error occurred for fr dict")));
+    pub static ref DE_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(&CACHE_PATH_WITH_IDENTIFIER, &format!("{JSON_DIR}/de"))).or(Err(format!("error occurred for de dict")));
+    pub static ref ES_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(&CACHE_PATH_WITH_IDENTIFIER, &format!("{JSON_DIR}/es"))).or(Err(format!("error occurred for es dict")));
+    pub static ref IT_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(&CACHE_PATH_WITH_IDENTIFIER, &format!("{JSON_DIR}/it"))).or(Err(format!("error occurred for it dict")));
+    pub static ref FA_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(&CACHE_PATH_WITH_IDENTIFIER, &format!("{JSON_DIR}/fa"))).or(Err(format!("error occurred for fa dict")));
+    pub static ref PT_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(&CACHE_PATH_WITH_IDENTIFIER, &format!("{JSON_DIR}/pt"))).or(Err(format!("error occurred for pt dict")));
+    pub static ref ZH_CN_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(&CACHE_PATH_WITH_IDENTIFIER, &format!("{JSON_DIR}/zh-CN"))).or(Err(format!("error occurred for zh-CN dict")));
+    pub static ref AR_DICT: Result<IObject, String> = read_json_file(&find_absolute_path(&CACHE_PATH_WITH_IDENTIFIER, &format!("{JSON_DIR}/ar"))).or(Err(format!("error occurred for ar dict")));
     pub static ref OFFLINE_DICTS: HashMap<&'static str, OfflineDict<'static>> = HashMap::from([
         (
             "en",
@@ -121,7 +121,7 @@ lazy_static! {
     ]);
 }
 
-pub fn find_absolute_path(base_path: String, path: &str) -> String {
+pub fn find_absolute_path(base_path: &str, path: &str) -> String {
     let absolute_path = format!("{}/{}", base_path, path);
     absolute_path
 }
@@ -329,7 +329,7 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     }
     emit_dl_status(100, &format!("downloading {abbr}")).unwrap(); // download finished.
 
-    let mut abs_json_dir = find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), JSON_DIR);
+    let mut abs_json_dir = find_absolute_path(&CACHE_PATH_WITH_IDENTIFIER, JSON_DIR);
     if fs::metadata(&abs_json_dir).is_err() {
         fs::create_dir_all(&abs_json_dir).or(Err("error while creating nested directory."))?;
     }

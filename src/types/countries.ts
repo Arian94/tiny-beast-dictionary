@@ -1,4 +1,5 @@
 import { OfflineDictAbbrs } from "./offline-mode";
+import { Theme } from "./theme";
 
 export const offlineDictionaries = {
     English: "en",
@@ -78,6 +79,7 @@ export const onlineDictionaries = {
 export type CountriesNames = keyof typeof onlineDictionaries;
 export type CountriesAbbrs = typeof onlineDictionaries[CountriesNames];
 export type SavedConfig = {
+    theme: Theme;
     activeTab: 'online' | 'offline';
     from: CountriesAbbrs | 'auto';
     to: CountriesAbbrs;

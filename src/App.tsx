@@ -4,6 +4,7 @@ import { emit, listen, once } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/tauri';
 import { appWindow, PhysicalPosition } from '@tauri-apps/api/window';
 import { MutableRefObject, useEffect, useRef, useState } from 'react';
+import { version } from '../package.json';
 import styles from './App.module.scss';
 import { Modal, NOT_DOWNLOADED } from './components/language-options/offline-mode/Modal';
 import { OfflineTab } from './components/language-options/offline-mode/OfflineTab';
@@ -11,13 +12,10 @@ import { OnlineTab } from './components/language-options/OnlineTab';
 import { Translation } from './components/Translation';
 import { CountriesAbbrs, SavedConfig } from './types/countries';
 import { INIT_DICT, OfflineDictAbbrs, OfflineDictsList, OfflineTranslation } from './types/offline-mode';
+import { Theme } from './types/theme';
 
 type DownloadStatus = { name: OfflineDictAbbrs; percentage: number };
-//todo improve input ---> done
-//todo add themes
-//todo fix the save config --> done?
-//todo trim word in offline mode ---> done
-//todo add backspace to hide text translation icon ---> done
+
 function App() {
   const [inputVal, setInputVal] = useState("");
   const [activeTab, setActiveTab] = useState<'online' | 'offline'>('online');
@@ -46,15 +44,15 @@ function App() {
       ar: { percentage: NOT_DOWNLOADED, zipped: '20 MB', extracted: '429 MB', name: "Arabic", isBootUp: false },
     }
   );
-  const translateClipboard = useRef(false);
-  const _translateSelectedText = useRef(true);
+  const translateClipboardRef = useRef(false);
+  const _translateSelectedTextRef = useRef(true);
   const isSpeaking = useRef(false);
   let clipboardBuffer: string;
+  let selectedTheme: Theme = "default";
 
-  const setRefCurrent = (ref: MutableRefObject<string | OfflineTranslation>, value: string | OfflineTranslation) => {
+  function setRefCurrent<T>(ref: MutableRefObject<T>, value: T) {
     ref.current = value
   }
-
 
   async function emitNewConfig(selectedOfflineDict?: OfflineDictAbbrs | null, downloadedDicts?: OfflineDictAbbrs[]) {
     const { x, y } = await appWindow.outerPosition();
@@ -63,6 +61,7 @@ function App() {
     const dd = downloadedDicts || downloadedDictsRef.current;
 
     const config: SavedConfig = {
+      theme: selectedTheme,
       activeTab: activeTabRef.current,
       from: fromRef.current,
       to: toRef.current,
@@ -72,22 +71,29 @@ function App() {
       y,
       width,
       height,
-      translateClipboard: translateClipboard.current,
-      translateSelectedText: _translateSelectedText.current
+      translateClipboard: translateClipboardRef.current,
+      translateSelectedText: _translateSelectedTextRef.current
     };
     emit('new_config', config);
   }
 
   useEffect(() => {
-    once<SavedConfig>('get_saved_config', ({ payload: { activeTab, from, to, selectedOfflineDict, downloadedDicts, translateClipboard: tc, translateSelectedText: ts } }) => {
-      activeTab && setActiveTab(activeTab as 'online' | 'offline');
-      from && setFrom(from);
-      to && setTo(to);
-      selectedOfflineDict && setSelectedOfflineDict(selectedOfflineDict);
-      downloadedDicts?.length && setDownloadedDicts(downloadedDicts);
-      translateClipboard.current = !!tc;
-      _translateSelectedText.current = ts ?? true;
-    });
+    const changeTheme = (theme: Theme = "default") => {
+      selectedTheme = theme;
+      document.documentElement.setAttribute("theme", theme);
+    }
+
+    const getSavedConfig = once<SavedConfig>('get_saved_config',
+      ({ payload: { theme, activeTab, from, to, selectedOfflineDict, downloadedDicts, translateClipboard: tc, translateSelectedText: ts } }) => {
+        activeTab && setActiveTab(activeTab as 'online' | 'offline');
+        from && setFrom(from);
+        to && setTo(to);
+        selectedOfflineDict && setSelectedOfflineDict(selectedOfflineDict);
+        downloadedDicts?.length && setDownloadedDicts(downloadedDicts);
+        setRefCurrent(translateClipboardRef, !!tc);
+        setRefCurrent(_translateSelectedTextRef, ts ?? true);
+        changeTheme(theme);
+      });
 
     function translationSpeakHandler(e: KeyboardEvent) {
       if (!translationRef.current) return;
@@ -116,20 +122,22 @@ function App() {
 
     const translateClipboardListener = listen<boolean[]>('tray_settings',
       ({ payload }) => {
-        translateClipboard.current = payload[0];
-        _translateSelectedText.current = payload[1];
+        translateClipboardRef.current = payload[0];
+        _translateSelectedTextRef.current = payload[1];
         emitNewConfig();
       });
 
     const appFocus = appWindow.onFocusChanged(({ payload: isFocused }) => {
       appWindow.emit('app_focus', isFocused);
       if (!isFocused) return;
-      if (!translateClipboard.current) return;
+      if (!translateClipboardRef.current) return;
       readText().then(clip => readClipboard(clip));
     });
 
-    const downloadingListener = listen<DownloadStatus>('downloading', (msg) => {
-      offlineDictsList[msg.payload.name].percentage = msg.payload.percentage;
+    const themeListener = listen<Theme>('theme_changed', ({ payload }) => changeTheme(payload));
+
+    const downloadingListener = listen<DownloadStatus>('downloading', ({ payload }) => {
+      offlineDictsList[payload.name].percentage = payload.percentage;
       setOfflineDictsList({ ...offlineDictsList });
     });
 
@@ -148,8 +156,10 @@ function App() {
     });
 
     return () => {
-      window.removeEventListener('keypress', translationSpeakHandler)
-      appFocus.then(f => f());
+      window.removeEventListener('keypress', translationSpeakHandler);
+      getSavedConfig.then(d => d());
+      appFocus.then(d => d());
+      themeListener.then(d => d());
       downloadingListener.then(d => d());
       translateSelectedTextListener.then(d => d());
       translateClipboardListener.then(d => d());
@@ -279,6 +289,8 @@ function App() {
         speak={speak}
         handler={handler}
       />
+
+      <span className={styles.version}>v.{version}</span>
     </div>
   )
 }

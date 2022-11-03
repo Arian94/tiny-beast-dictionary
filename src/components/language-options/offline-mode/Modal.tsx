@@ -75,7 +75,7 @@ export const Modal: React.FC<{
           const dict = offlineDictsList[abbr];
           const dlStatusIcon = dict.percentage === NOT_DOWNLOADED ? downloadIcon : dict.percentage === DOWNLOADED ? deleteIcon : cancelIcon;
           return (
-            <div key={abbr} className={styles.dict}>
+            <div key={abbr} className={styles.item}>
               <span>{dict.name} <small>(Z: {dict.zipped}, E: {dict.extracted})</small></span>
               <div className={styles.download}>
                 {dict.percentage !== NOT_DOWNLOADED && dict.percentage !== DOWNLOADED &&
@@ -103,36 +103,29 @@ export const Modal: React.FC<{
 
     return (
       <>
-        <div className={styles.darkBG} onClick={() => setIsOpen(false)} />
-        <div className={styles.modal}>
-          <div className={styles.modalHeader}>
+        <div className={`modal-bg ${styles.darkBg}`} onClick={() => setIsOpen(false)} />
+        <div className={`modal ${styles.modal}`}>
+          <div className={`modal-header ${styles.modalHeader}`}>
             <h4 className={styles.heading}>Resources</h4>
-            <button className={styles.closeBtn} onClick={() => setIsOpen(false)}>
-              X
-            </button>
+            <button className={styles.closeBtn} onClick={() => setIsOpen(false)}>X</button>
           </div>
 
-          <div className={styles.modalContent}>
+          <div className={`modal-content ${styles.modalContent}`}>
             <div className={styles.title}>
               List of available dictionaries:
               <small>File Sizes: Zipped: Z - Extracted: E</small>
             </div>
-            <div className={styles.scroller}>
+            <div className={styles.dictItems}>
               <>
                 {langs}
               </>
             </div>
           </div>
 
-          <div className={styles.modalActions}>
-            <div className={styles.actionsContainer}>
-              <button
-                className={styles.cancelBtn}
-                onClick={() => setIsOpen(false)}
-              >
-                Cancel
-              </button>
-            </div>
+          <div className={`modal-actions ${styles.modalActions}`}>
+            <button className={styles.cancelBtn} onClick={() => setIsOpen(false)}>
+              Cancel
+            </button>
           </div>
         </div>
       </>

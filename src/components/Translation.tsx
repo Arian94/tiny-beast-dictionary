@@ -114,6 +114,7 @@ export function Translation({
                     }} />
                 <button
                     title="Press Enter"
+                    className="glow-animation"
                     onClick={() => speak(inputVal, activeTabRef.current === 'online' ? fromRef.current : selectedOfflineDictRef.current || 'auto')}
                     style={{
                         opacity: !inputVal || isFa ? .5 : 1,
@@ -129,8 +130,8 @@ export function Translation({
                         left: isLatin ? 'unset' : '2px',
                         right: isLatin ? '2px' : 'unset'
                     }}>
-                    <button onClick={() => setInputVal('')}></button>
-                    <button onClick={handler}></button>
+                    <button className="glow-animation" onClick={handler}></button>
+                    <button className="glow-animation" onClick={() => setInputVal('')}></button>
                 </div>
             </div>
             <fieldset className={styles.translation}
@@ -142,6 +143,7 @@ export function Translation({
                     Translation
                     <button
                         title="Press CTRL + Enter"
+                        className="glow-animation"
                         onClick={() => speak(translationRef.current as string, toRef.current)}
                         style={{ display: !translationRef.current || toRef.current === 'fa' || activeTabRef.current === 'offline' ? 'none' : 'block' }}
                     >

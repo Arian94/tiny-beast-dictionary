@@ -11,19 +11,21 @@
     span {
       font-size: 10px;
       margin-inline-start: 4px;
+      margin-block: 3px;
     }
   }
 
   button {
+    position: relative;
+    top: 3px;
     height: 30px;
     width: 30px;
     align-self: end;
     margin-inline: 4px;
     margin-bottom: 2px;
-    background: url(../../assets/refresh.ico) no-repeat center;
-    background-color: white;
+    background: url(../../assets/refresh.svg) no-repeat center;
+    background-color: rgb(var(--primary), .8);
     background-size: 20px;
     border-radius: 15px;
-    border: 1px solid;
   }
 }
