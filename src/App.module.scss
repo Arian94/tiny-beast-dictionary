@@ -1,8 +1,7 @@
 .App {
-  height: 99vh;
+  position: relative;
   min-width: 270px;
   padding: 0 .3rem;
-  color: white;
 
   .switches {
     display: flex;
@@ -13,7 +12,7 @@
       width: 30px;
       height: 30px;
       right: -5px;
-      background: url(assets/online.svg) no-repeat center;
+      background: url(assets/earth.svg) no-repeat center;
       background-size: 25px;
       border: unset;
       border-left: 1px groove #1ea7c6;
@@ -25,5 +24,13 @@
         background-position: center -10%;
       }
     }
+  }
+
+  .version {
+    position: absolute;
+    bottom: 3px;
+    right: 10px;
+    font-size: 10px;
+    text-decoration: underline;
   }
 }

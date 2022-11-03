@@ -14,7 +14,6 @@ export function OnlineTab({
     const renderLangOptions = (option: 'from' | 'to') => {
         const ops: JSX.IntrinsicElements['option'][] = [];
         (Object.keys(onlineDictionaries) as CountriesNames[])
-            .filter(country => option === 'from' ? to !== onlineDictionaries[country] : from !== onlineDictionaries[country])
             .map(country => {
                 ops.push(<option key={option + country} value={onlineDictionaries[country]}>{country}</option>)
             })
@@ -36,7 +35,7 @@ export function OnlineTab({
                 </select>
             </div>
 
-            <button onClick={swapLang}></button>
+            <button className="glow-animation" onClick={swapLang}></button>
 
             <div className={styles.to}>
                 <span>to</span>

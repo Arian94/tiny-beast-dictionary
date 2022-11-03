@@ -27,14 +27,26 @@ use tauri::{
 use tts_rust::languages::Languages::*;
 use tts_rust::GTTSClient;
 
+const TRANSLATE_CLIPBOARD_TITLE: &'static str = "Translate Clipboard";
+const TRANSLATE_SELECTED_TEXT_TITLE: &'static str = "Translate Selected Text";
+
+fn toggle_menu_item_status(title: &str, status: bool) -> String {
+    format!("{} {}", if status { "\u{25cf}" } else { "\u{25cb}" }, title)
+}
+
 fn main() {
     let quit = CustomMenuItem::new("quit", "Quit");
     let show_hide = CustomMenuItem::new("show_hide", "Hide");
-    let mut clipboard = CustomMenuItem::new("clipboard".to_string(), "Translate Clipboard (Off)");
-    let mut selected_text_setting =
-        CustomMenuItem::new("selected_text".to_string(), "Translate Selected Text (On)");
+    let mut clipboard = CustomMenuItem::new(
+        "clipboard",
+        toggle_menu_item_status(TRANSLATE_CLIPBOARD_TITLE, false),
+    );
+    let mut selected_text_setting = CustomMenuItem::new(
+        "selected_text",
+        toggle_menu_item_status(TRANSLATE_SELECTED_TEXT_TITLE, true),
+    );
     let config_result = read_json_file::<IValue>(&find_absolute_path(
-        CACHE_PATH_WITH_IDENTIFIER.to_string(),
+        &CACHE_PATH_WITH_IDENTIFIER,
         SETTINGS_FILENAME,
     ));
     let arc_translate_clip = Arc::new(Mutex::new(false));
@@ -51,26 +63,34 @@ fn main() {
             .unwrap_or(&IValue::TRUE)
             .to_bool()
             .unwrap();
-        clipboard.title = if *arc_translate_clip.lock().unwrap() {
-            "Translate Clipboard (On)".to_string()
-        } else {
-            "Translate Clipboard (Off)".to_string()
-        };
-        selected_text_setting.title = if *arc_translate_selected_text.lock().unwrap() {
-            "Translate Selected Text (On)".to_string()
-        } else {
-            "Translate Selected Text (Off)".to_string()
-        };
+        clipboard.title = toggle_menu_item_status(
+            TRANSLATE_CLIPBOARD_TITLE,
+            *arc_translate_clip.lock().unwrap(),
+        );
+        selected_text_setting.title = toggle_menu_item_status(
+            TRANSLATE_SELECTED_TEXT_TITLE,
+            *arc_translate_selected_text.lock().unwrap(),
+        );
     }
     let setting_items = SystemTrayMenu::new()
         .add_item(clipboard)
         .add_item(selected_text_setting);
     let setting_menu = SystemTraySubmenu::new("Settings", setting_items);
+
+    let default_theme = CustomMenuItem::new("default", "Default");
+    let dark_theme = CustomMenuItem::new("dark", "Pitch Black");
+    let light_theme = CustomMenuItem::new("light", "Sunset");
+    let theme_items = SystemTrayMenu::new()
+        .add_item(default_theme)
+        .add_item(dark_theme)
+        .add_item(light_theme);
+    let theme_menu = SystemTraySubmenu::new("Themes", theme_items);
     let tray_menu = SystemTrayMenu::new()
         .add_item(quit)
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(show_hide)
-        .add_submenu(setting_menu);
+        .add_submenu(setting_menu)
+        .add_submenu(theme_menu);
     let tray = SystemTray::new().with_menu(tray_menu);
     fn consume_selected_text() -> std::process::Output {
         std::process::Command::new("xsel")
@@ -97,10 +117,7 @@ fn main() {
                         window.once("new_config", |event| {
                             let payload = event.payload().unwrap();
                             open_write_json_payload::<IValue>(
-                                &find_absolute_path(
-                                    CACHE_PATH_WITH_IDENTIFIER.to_string(),
-                                    SETTINGS_FILENAME,
-                                ),
+                                &find_absolute_path(&CACHE_PATH_WITH_IDENTIFIER, SETTINGS_FILENAME),
                                 payload,
                             )
                             .is_ok()
@@ -122,32 +139,27 @@ fn main() {
                     "clipboard" => {
                         let tc = !*arc_translate_clip.lock().unwrap();
                         *arc_translate_clip.lock().unwrap() = tc;
-                        let title = if tc { "On" } else { "Off" };
-                        if let Err(err) = item_handle
-                            .set_title(format!("Translate Clipboard ({title})"))
-                            .and(window.emit(
-                                "tray_settings",
-                                (tc, *arc_translate_selected_text.lock().unwrap()),
-                            ))
-                        {
+                        let title = toggle_menu_item_status(TRANSLATE_CLIPBOARD_TITLE, tc);
+                        if let Err(err) = item_handle.set_title(title).and(window.emit(
+                            "tray_settings",
+                            (tc, *arc_translate_selected_text.lock().unwrap()),
+                        )) {
                             eprintln!("tray_settings clipboard error: {err}");
                         }
                     }
                     "selected_text" => {
                         let ts = !*arc_translate_selected_text.lock().unwrap();
                         *arc_translate_selected_text.lock().unwrap() = ts;
-                        let title = if ts { "On" } else { "Off" };
+                        let title = toggle_menu_item_status(TRANSLATE_SELECTED_TEXT_TITLE, ts);
                         consume_selected_text();
-                        if let Err(err) =
-                            item_handle
-                                .set_title(format!("Translate Selected Text ({title})"))
-                                .and(window.emit(
-                                    "tray_settings",
-                                    (*arc_translate_clip.lock().unwrap(), ts),
-                                ))
-                        {
+                        if let Err(err) = item_handle.set_title(title).and(
+                            window.emit("tray_settings", (*arc_translate_clip.lock().unwrap(), ts)),
+                        ) {
                             eprintln!("tray_settings selected_text error: {err}");
                         }
+                    }
+                    "default" | "dark" | "light" => {
+                            window.emit("theme_changed", id).unwrap();
                     }
                     _ => {}
                 }
@@ -170,7 +182,7 @@ fn main() {
             window.listen("new_config", move |event| {
                 let payload = event.payload().unwrap();
                 if let Err(e) = open_write_json_payload::<IValue>(
-                    &find_absolute_path(CACHE_PATH_WITH_IDENTIFIER.to_string(), SETTINGS_FILENAME),
+                    &find_absolute_path(&CACHE_PATH_WITH_IDENTIFIER, SETTINGS_FILENAME),
                     payload,
                 ) {
                     eprintln!(
@@ -429,7 +441,7 @@ async fn download_dict(abbr: &str, app_window: tauri::Window) -> Result<(), Stri
 #[tauri::command]
 async fn delete_dict(abbr: &str) -> Result<(), String> {
     if let Err(e) = delete_json_file(&find_absolute_path(
-        CACHE_PATH_WITH_IDENTIFIER.to_string(),
+        &CACHE_PATH_WITH_IDENTIFIER,
         &format!("{JSON_DIR}/{abbr}"),
     )) {
         return Err(e.to_string());

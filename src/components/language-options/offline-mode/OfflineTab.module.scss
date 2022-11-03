@@ -12,10 +12,11 @@
     background-size: 20px, 20px;
     background-position-x: 4px, 28px;
     background-color: rgb(28, 34, 28);
-    transition: background-color .3s ease-in;
+    transition: background-color .15s ease-in;
+    filter: unset !important;
 
     &:hover {
-      background-color: var(--primary);
+      background-color: rgba(var(--deep-gray), .33) !important;
     }
   }
 
@@ -26,6 +27,8 @@
 
     span {
       font-size: 10px;
+      padding-inline-start: 3px;
+      margin-block-end: 4px;
     }
   }
 }
