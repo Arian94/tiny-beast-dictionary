@@ -88,8 +88,8 @@ function App() {
         activeTab && setActiveTab(activeTab as 'online' | 'offline');
         from && setFrom(from);
         to && setTo(to);
-        selectedOfflineDict && setSelectedOfflineDict(selectedOfflineDict);
-        downloadedDicts?.length && setDownloadedDicts(downloadedDicts);
+        setSelectedOfflineDict(selectedOfflineDict);
+        setDownloadedDicts(downloadedDicts ?? []);
         setRefCurrent(translateClipboardRef, !!tc);
         setRefCurrent(_translateSelectedTextRef, ts ?? true);
         changeTheme(theme);
@@ -103,7 +103,7 @@ function App() {
       speak(translationRef.current as string, toRef.current);
     }
 
-    emit('front_is_up');
+    setTimeout(() => emit('front_is_up'));
     once('quit', () => emitNewConfig());
     window.addEventListener('keypress', translationSpeakHandler);
 
@@ -118,7 +118,7 @@ function App() {
     }
 
     // run readText once to store/read clipboard content which may exist before opening the app. 
-    readText().then(clip => clipboardBuffer = clip ?? '');
+    readText().then(clip => clipboardBuffer = clip?.trim() ?? '');
 
     const translateClipboardListener = listen<boolean[]>('tray_settings',
       ({ payload }) => {

@@ -268,13 +268,10 @@ where
 /// Neglecting the time it takes to download a dictionary, in devmode it would take 340 seconds (< 6 min) to rectify a 320 MB file
 /// and write it to the storage.
 pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), String> {
-    let once_abbr = abbr.to_owned();
-    let (t_once_x, r_once_x) = mpsc::channel::<bool>();
-    let ev_han = window.listen("cancel_download", move |event| {
-        if event.payload().unwrap() == once_abbr {
-            if let Err(e) = t_once_x.send(true) {
-                eprintln!("{}", e.to_string());
-            }
+    let (t_once_x, r_once_x) = mpsc::channel::<()>();
+    let ev_han = window.once(format!("cancel_download_{abbr}"), move |_| {
+        if let Err(e) = t_once_x.send(()) {
+            eprintln!("{}", e.to_string());
         }
     });
     let value = OFFLINE_DICTS.get(&abbr).unwrap();
@@ -305,15 +302,11 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     };
     let now = std::time::Instant::now();
     let mut dur = std::time::Duration::new(2, 0);
-
     emit_dl_status(0, &format!("downloading {abbr}")).unwrap(); // download started.
     while let Some(Ok(chunk)) = stream.next().await {
-        if let Ok(cancel_dl) = r_once_x.try_recv() {
-            if cancel_dl {
-                window.unlisten(ev_han);
-                fs::remove_file(tarxz_path).or(Err("error in deleting zip file"))?;
-                return Err("download canceled".to_string());
-            }
+        if r_once_x.try_recv().is_ok() {
+            fs::remove_file(&tarxz_path).or(Err("error in deleting zip file"))?;
+            Err("download canceled")?
         }
         tarxz_dict_file
             .write_all(&chunk)
@@ -349,6 +342,7 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     }
     fs::remove_file(tarxz_path).or(Err("error in deleting zip file"))?;
     fs::remove_file(incorrect_file_path).or(Err("error in deleting incorrect file"))?;
+    window.unlisten(ev_han);
     println!("downloaded: {abbr}");
     Ok(())
 }

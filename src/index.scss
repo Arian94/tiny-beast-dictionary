@@ -160,7 +160,7 @@ select {
   }
 
   .modal {
-    background-color: whitesmoke;
+    background-color: rgba(var(--tertiary));
 
     .modal-header button {
       background-color: rgba(var(--tertiary), 1);

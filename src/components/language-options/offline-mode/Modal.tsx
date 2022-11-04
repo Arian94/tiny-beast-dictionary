@@ -65,7 +65,7 @@ export const Modal: React.FC<{
           })
           .finally(() => setOfflineDictsList({ ...offlineDictsList }));
       } else {  //* to cancel
-        emit('cancel_download', abbr);
+        emit(`cancel_download_${abbr}`);
       }
     }
 
