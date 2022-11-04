@@ -1,7 +1,7 @@
 .darkBg {
     position: absolute;
     width: 100vw;
-    height: 100vh;
+    height: 100%;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
@@ -12,7 +12,7 @@
 .modal {
     position: fixed;
     width: 87vw;
-    height: 96vh;
+    height: 94vh;
     top: 50%;
     left: 50%;
     background-color: rgba(10, 25, 31, 1);

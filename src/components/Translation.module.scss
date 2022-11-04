@@ -58,11 +58,11 @@
   font-family: 'Noto Naskh';
   word-break: break-all;
   line-height: 20px;
-  min-height: calc(100vh - 125px);
+  min-height: calc(100vh - 122px);
   justify-content: space-between;
   padding-block-start: 8px;
   padding-inline: 4px;
-  margin-block: 1rem .3rem;
+  margin-block-start: 1rem;
   margin-inline: 0;
   background-color: rgba(var(--primary), .3);
   border: 1px solid rgba(blueviolet, .3);

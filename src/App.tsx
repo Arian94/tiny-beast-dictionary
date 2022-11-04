@@ -83,17 +83,17 @@ function App() {
       document.documentElement.setAttribute("theme", theme);
     }
 
-    const getSavedConfig = once<SavedConfig>('get_saved_config',
+    once<SavedConfig>('get_saved_config',
       ({ payload: { theme, activeTab, from, to, selectedOfflineDict, downloadedDicts, translateClipboard: tc, translateSelectedText: ts } }) => {
         activeTab && setActiveTab(activeTab as 'online' | 'offline');
         from && setFrom(from);
         to && setTo(to);
-        selectedOfflineDict && setSelectedOfflineDict(selectedOfflineDict);
-        downloadedDicts?.length && setDownloadedDicts(downloadedDicts);
+        setSelectedOfflineDict(selectedOfflineDict);
+        setDownloadedDicts(downloadedDicts ?? []);
         setRefCurrent(translateClipboardRef, !!tc);
         setRefCurrent(_translateSelectedTextRef, ts ?? true);
         changeTheme(theme);
-      });
+      }).then(() => emit('front_is_up'));
 
     function translationSpeakHandler(e: KeyboardEvent) {
       if (!translationRef.current) return;
@@ -103,8 +103,7 @@ function App() {
       speak(translationRef.current as string, toRef.current);
     }
 
-    emit('front_is_up');
-    once('quit', () => emitNewConfig());
+    const quit = once('quit', () => emitNewConfig());
     window.addEventListener('keypress', translationSpeakHandler);
 
     const readClipboard = (clip: string | null) => {
@@ -118,7 +117,7 @@ function App() {
     }
 
     // run readText once to store/read clipboard content which may exist before opening the app. 
-    readText().then(clip => clipboardBuffer = clip ?? '');
+    readText().then(clip => clipboardBuffer = clip?.trim() ?? '');
 
     const translateClipboardListener = listen<boolean[]>('tray_settings',
       ({ payload }) => {
@@ -149,15 +148,15 @@ function App() {
       appWindow.show();
     });
 
-    const closeApp = appWindow.onCloseRequested(e => {
+    const closeApp = appWindow.onCloseRequested(async e => {
       e.preventDefault();
-      once("config_saved", () => setTimeout(() => process.exit(), 250));
+      await once("config_saved", () => process.exit());
       emitNewConfig();
     });
 
     return () => {
       window.removeEventListener('keypress', translationSpeakHandler);
-      getSavedConfig.then(d => d());
+      quit.then(d => d());
       appFocus.then(d => d());
       themeListener.then(d => d());
       downloadingListener.then(d => d());

@@ -159,7 +159,7 @@ fn main() {
                         }
                     }
                     "default" | "dark" | "light" => {
-                            window.emit("theme_changed", id).unwrap();
+                        window.emit("theme_changed", id).unwrap();
                     }
                     _ => {}
                 }
@@ -205,7 +205,7 @@ fn main() {
                         width: config["width"].to_f32().unwrap(),
                         height: config["height"].to_f32().unwrap(),
                     })?;
-                    window.listen("front_is_up", move |_| {
+                    window.once("front_is_up", move |_| {
                         set_win.emit("get_saved_config", config.to_owned()).unwrap();
                     });
                 }
