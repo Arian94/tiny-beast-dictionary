@@ -3,20 +3,16 @@ import { OfflineDictAbbrs, OfflineDictsList, OfflineTranslation } from '../../..
 import styles from './OfflineTab.module.scss';
 
 export function OfflineTab({
-    translationRef,
     offlineDictsList,
     downloadedDicts,
     selectedOfflineDict,
     setSelectedOfflineDict,
-    setInputVal,
     setIsOpen
 }: {
-    translationRef: MutableRefObject<string | OfflineTranslation>,
     offlineDictsList: OfflineDictsList,
     downloadedDicts: OfflineDictAbbrs[],
     selectedOfflineDict: OfflineDictAbbrs | undefined,
     setSelectedOfflineDict: React.Dispatch<React.SetStateAction<OfflineDictAbbrs | undefined>>,
-    setInputVal: React.Dispatch<React.SetStateAction<string>>,
     setIsOpen: React.Dispatch<React.SetStateAction<boolean>>
 }) {
     const renderOfflineLangOptions = () => {
@@ -32,10 +28,8 @@ export function OfflineTab({
             <button title="Add or Remove" onClick={() => setIsOpen(true)}></button>
             <div className={styles.offlineDict}>
                 <span>Select an offline dictionary:</span>
-                <select value={selectedOfflineDict} onChange={e => { translationRef.current = ''; setInputVal(''); setSelectedOfflineDict(e.target.value as OfflineDictAbbrs); }}>
-                    <>
-                        {offlineLangOptions}
-                    </>
+                <select value={selectedOfflineDict} onChange={e => { setSelectedOfflineDict(e.target.value as OfflineDictAbbrs); }}>
+                    {offlineLangOptions}
                 </select>
             </div>
         </div>

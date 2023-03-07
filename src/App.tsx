@@ -1,31 +1,26 @@
 import { process } from '@tauri-apps/api';
-import { readText } from '@tauri-apps/api/clipboard';
 import { emit, listen, once } from '@tauri-apps/api/event';
-import { invoke } from '@tauri-apps/api/tauri';
-import { appWindow, PhysicalPosition } from '@tauri-apps/api/window';
-import { MutableRefObject, useEffect, useRef, useState } from 'react';
+import { appWindow } from '@tauri-apps/api/window';
+import { createRef, MutableRefObject, useEffect, useRef, useState } from 'react';
 import { version } from '../package.json';
 import styles from './App.module.scss';
 import { Modal, NOT_DOWNLOADED } from './components/language-options/offline-mode/Modal';
 import { OfflineTab } from './components/language-options/offline-mode/OfflineTab';
 import { OnlineTab } from './components/language-options/OnlineTab';
-import { Translation } from './components/Translation';
+import { Translation, TranslationCompOutput } from './components/Translation';
 import { CountriesAbbrs, SavedConfig } from './types/countries';
-import { INIT_DICT, OfflineDictAbbrs, OfflineDictsList, OfflineTranslation } from './types/offline-mode';
+import { OfflineDictAbbrs, OfflineDictsList } from './types/offline-mode';
 import { Theme } from './types/theme';
 
 type DownloadStatus = { name: OfflineDictAbbrs; percentage: number };
 
 function App() {
-  const [inputVal, setInputVal] = useState("");
   const [activeTab, setActiveTab] = useState<'online' | 'offline'>('online');
   const activeTabRef = useRef<'online' | 'offline'>('online');
   const fromRef = useRef<CountriesAbbrs | 'auto'>('auto');
   const [from, setFrom] = useState<CountriesAbbrs | 'auto'>('auto');
   const toRef = useRef<CountriesAbbrs>('en');
   const [to, setTo] = useState<CountriesAbbrs>('en');
-  const translationRef = useRef<string | OfflineTranslation>('');
-  const [loading, setLoading] = useState<boolean>(false);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOfflineDict, setSelectedOfflineDict] = useState<OfflineDictAbbrs>();
   const [downloadedDicts, setDownloadedDicts] = useState<OfflineDictAbbrs[]>([]);
@@ -44,14 +39,14 @@ function App() {
       ar: { percentage: NOT_DOWNLOADED, zipped: '20 MB', extracted: '429 MB', name: "Arabic", isBootUp: false },
     }
   );
-  const translateClipboardRef = useRef(false);
-  const _translateSelectedTextRef = useRef(true);
-  const isSpeaking = useRef(false);
-  let clipboardBuffer: string;
+  const shouldTranslateClipboardRef = useRef(false);
+  const _shouldTranslateSelectedTextRef = useRef(true);
+  const tranlationCompRef = createRef<TranslationCompOutput>();
+
   let selectedTheme: Theme = "default";
 
-  function setRefCurrent<T>(ref: MutableRefObject<T>, value: T) {
-    ref.current = value
+  function setRefCurrent<T>(ref: MutableRefObject<T> | undefined, value: T) {
+    if (ref) ref.current = value
   }
 
   async function emitNewConfig(selectedOfflineDict?: OfflineDictAbbrs | null, downloadedDicts?: OfflineDictAbbrs[]) {
@@ -71,8 +66,8 @@ function App() {
       y,
       width,
       height,
-      translateClipboard: translateClipboardRef.current,
-      translateSelectedText: _translateSelectedTextRef.current
+      shouldTranslateClipboard: shouldTranslateClipboardRef.current,
+      shouldTranslateSelectedText: _shouldTranslateSelectedTextRef.current
     };
     emit('new_config', config);
   }
@@ -84,68 +79,22 @@ function App() {
     }
 
     once<SavedConfig>('get_saved_config',
-      ({ payload: { theme, activeTab, from, to, selectedOfflineDict, downloadedDicts, translateClipboard: tc, translateSelectedText: ts } }) => {
+      ({ payload: { theme, activeTab, from, to, selectedOfflineDict, downloadedDicts, shouldTranslateClipboard: tc, shouldTranslateSelectedText: ts } }) => {
         activeTab && setActiveTab(activeTab as 'online' | 'offline');
         from && setFrom(from);
         to && setTo(to);
         setSelectedOfflineDict(selectedOfflineDict);
         setDownloadedDicts(downloadedDicts ?? []);
-        setRefCurrent(translateClipboardRef, !!tc);
-        setRefCurrent(_translateSelectedTextRef, ts ?? true);
+        setRefCurrent(shouldTranslateClipboardRef, !!tc);
+        setRefCurrent(_shouldTranslateSelectedTextRef, ts ?? true);
         changeTheme(theme);
       }).then(() => emit('front_is_up'));
 
-    function translationSpeakHandler(e: KeyboardEvent) {
-      if (!translationRef.current) return;
-      if (toRef.current === 'fa') return;
-      if (e.code !== 'Enter' || !e.ctrlKey) return;
-      if (activeTabRef.current === 'offline') return;
-      speak(translationRef.current as string, toRef.current);
-    }
-
     const quit = once('quit', () => emitNewConfig());
-    window.addEventListener('keypress', translationSpeakHandler);
-
-    const readClipboard = (clip: string | null) => {
-      const trimmed = clip?.trim();
-      if (!trimmed) return;
-      if (trimmed === clipboardBuffer) return;
-      if (trimmed.search(/[{}\[\]<>]/) >= 0) return;
-
-      clipboardBuffer = trimmed;
-      setInputVal(trimmed);
-    }
-
-    // run readText once to store/read clipboard content which may exist before opening the app. 
-    readText().then(clip => clipboardBuffer = clip?.trim() ?? '');
-
-    const translateClipboardListener = listen<boolean[]>('tray_settings',
-      ({ payload }) => {
-        translateClipboardRef.current = payload[0];
-        _translateSelectedTextRef.current = payload[1];
-        emitNewConfig();
-      });
-
-    const appFocus = appWindow.onFocusChanged(({ payload: isFocused }) => {
-      appWindow.emit('app_focus', isFocused);
-      if (!isFocused) return;
-      if (!translateClipboardRef.current) return;
-      readText().then(clip => readClipboard(clip));
-    });
-
     const themeListener = listen<Theme>('theme_changed', ({ payload }) => changeTheme(payload));
-
     const downloadingListener = listen<DownloadStatus>('downloading', ({ payload }) => {
       offlineDictsList[payload.name].percentage = payload.percentage;
       setOfflineDictsList({ ...offlineDictsList });
-    });
-
-    const translateSelectedTextListener = listen<string>('text_selected', async ({ payload: text }) => {
-      setInputVal(text);
-      await appWindow.hide();                                                 //* hiding and then showing to suppress the os notification when using appWindow.unminimize()
-      const pos = await appWindow.outerPosition();
-      await appWindow.setPosition(new PhysicalPosition(pos.x, pos.y - 36));         // neccessary as appWindow.show() forgets the position.
-      appWindow.show();
     });
 
     const closeApp = appWindow.onCloseRequested(async e => {
@@ -155,13 +104,9 @@ function App() {
     });
 
     return () => {
-      window.removeEventListener('keypress', translationSpeakHandler);
       quit.then(d => d());
-      appFocus.then(d => d());
       themeListener.then(d => d());
       downloadingListener.then(d => d());
-      translateSelectedTextListener.then(d => d());
-      translateClipboardListener.then(d => d());
       closeApp.then(d => d());
     }
   }, []);
@@ -180,59 +125,15 @@ function App() {
   }, [downloadedDicts]);
 
   useEffect(() => {
-    const timeOutId = setTimeout(() => handler(), 700);
-    return () => clearTimeout(timeOutId);
-  }, [inputVal]);
-
-  useEffect(() => {
     fromRef.current = from;
     toRef.current = to;
-    setTimeout(() => handler(), 0);
+    tranlationCompRef.current?.langSwapped();
   }, [from, to]);
 
   const swapLang = () => {
     setFrom(to);
     setTo(from === 'auto' ? to === 'en' ? 'fr' : 'en' : from);
-    setInputVal(translationRef.current as string);
-    setTimeout(() => handler(), 0);
   }
-
-  const speak = (word: string, lang: CountriesAbbrs | 'auto') => {
-    if (isSpeaking.current) return;
-    isSpeaking.current = true;
-    invoke<void>('speak', { word, lang }).then(() => isSpeaking.current = false);
-  }
-
-  const invokeBackend = async () => {
-    let translationVal: string | OfflineTranslation;
-    try {
-      if (activeTab === 'online') {
-        translationVal = await invoke<string>('online_translate', { from: fromRef.current, to: toRef.current, word: inputVal });
-      } else {
-        if (selectedOfflineDict) {
-          if (!offlineDictsList[selectedOfflineDict].isBootUp) {
-            translationVal = INIT_DICT;
-            offlineDictsList[selectedOfflineDict].isBootUp = true;
-            setRefCurrent(translationRef, translationVal);
-          }
-          translationVal = await invoke<OfflineTranslation>('offline_translate', { word: inputVal, lang: selectedOfflineDict });
-        } else {
-          translationVal = '';
-        }
-      }
-    } catch (er: any) {
-      translationVal = er;
-    }
-    setRefCurrent(translationRef, translationVal)
-    setLoading(false)
-  }
-
-  const handler = () => {
-    if (!inputVal.trim()) return;
-    setLoading(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    invokeBackend();
-  };
 
   return (
     <div className={styles.App}>
@@ -263,30 +164,27 @@ function App() {
             offlineDictsList={offlineDictsList}
             selectedOfflineDict={selectedOfflineDict}
             setSelectedOfflineDict={setSelectedOfflineDict}
-            setInputVal={setInputVal}
             setIsOpen={setIsOpen}
-            translationRef={translationRef}
           />
         }
 
-        <button disabled={translationRef.current === INIT_DICT} className={styles.modeChanger} title={`Go ${activeTab === 'online' ? 'offline' : 'online'}`}
+        <button className={styles.modeChanger} title={`Go ${activeTab === 'online' ? 'offline' : 'online'}`}
           style={{ filter: activeTab === 'online' ? 'grayscale(0)' : 'grayscale(.8)' }}
-          onClick={() => { setRefCurrent(translationRef, ''); setActiveTab(activeTab === "online" ? 'offline' : 'online'); }}>
+          onClick={() => { setRefCurrent(tranlationCompRef.current?.translationTextareaRef, ''); setActiveTab(activeTab === "online" ? 'offline' : 'online'); }}>
         </button>
       </div>
 
       <Translation
+        ref={tranlationCompRef}
         key="translation"
         activeTabRef={activeTabRef}
         fromRef={fromRef}
         toRef={toRef}
-        translationRef={translationRef}
         selectedOfflineDictRef={selectedOfflineDictRef}
-        inputVal={inputVal}
-        setInputVal={setInputVal}
-        loading={loading}
-        speak={speak}
-        handler={handler}
+        emitNewConfig={emitNewConfig}
+        offlineDictsList={offlineDictsList}
+        shouldTranslateClipboardRef={shouldTranslateClipboardRef}
+        _shouldTranslateSelectedTextRef={_shouldTranslateSelectedTextRef}
       />
 
       <span className={styles.version}>v.{version}</span>

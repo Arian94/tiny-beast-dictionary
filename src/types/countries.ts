@@ -89,6 +89,6 @@ export type SavedConfig = {
     y: number;
     width: number;
     height: number;
-    translateClipboard: boolean;
-    translateSelectedText: boolean;
+    shouldTranslateClipboard: boolean;
+    shouldTranslateSelectedText: boolean;
 }

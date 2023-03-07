@@ -76,7 +76,7 @@ export const Modal: React.FC<{
           const dlStatusIcon = dict.percentage === NOT_DOWNLOADED ? downloadIcon : dict.percentage === DOWNLOADED ? deleteIcon : cancelIcon;
           return (
             <div key={abbr} className={styles.item}>
-              <span>{dict.name} <small>(Z: {dict.zipped}, E: {dict.extracted})</small></span>
+              <span>{dict.name} <small>(D: {dict.zipped}, I: {dict.extracted})</small></span>
               <div className={styles.download}>
                 {dict.percentage !== NOT_DOWNLOADED && dict.percentage !== DOWNLOADED &&
                   <span>
@@ -113,7 +113,7 @@ export const Modal: React.FC<{
           <div className={`modal-content ${styles.modalContent}`}>
             <div className={styles.title}>
               List of available dictionaries:
-              <small>File Sizes: Zipped: Z - Extracted: E</small>
+              <small>File Sizes: Download: D - Installed: I</small>
             </div>
             <div className={styles.dictItems}>
               <>

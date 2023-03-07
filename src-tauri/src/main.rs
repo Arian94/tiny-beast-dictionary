@@ -17,7 +17,7 @@ use rdev::{
 };
 use std::{
     fs,
-    sync::{Arc, Mutex},
+    sync::{atomic::AtomicBool, Arc, Mutex},
     thread,
 };
 use tauri::{
@@ -25,7 +25,7 @@ use tauri::{
     SystemTrayMenu, SystemTrayMenuItem, SystemTraySubmenu, WindowEvent,
 };
 use tts_rust::languages::Languages::*;
-use tts_rust::GTTSClient;
+use tts_rust::tts::GTTSClient;
 
 const TRANSLATE_CLIPBOARD_TITLE: &'static str = "Translate Clipboard";
 const TRANSLATE_SELECTED_TEXT_TITLE: &'static str = "Translate Selected Text";
@@ -54,12 +54,12 @@ fn main() {
     let listener_clone_translate_selected_text = Arc::clone(&arc_translate_selected_text);
     if let Ok(conf) = config_result.as_ref() {
         *arc_translate_clip.lock().unwrap() = conf
-            .get("translateClipboard")
+            .get("shouldTranslateClipboard")
             .unwrap_or(&IValue::FALSE)
             .to_bool()
             .unwrap();
         *arc_translate_selected_text.lock().unwrap() = conf
-            .get("translateSelectedText")
+            .get("shouldTranslateSelectedText")
             .unwrap_or(&IValue::TRUE)
             .to_bool()
             .unwrap();
@@ -212,11 +212,14 @@ fn main() {
                 Err(err) => eprintln!("config result error: {err}"),
             };
 
-            let is_input_focused = Arc::new(Mutex::new(true));
+            let is_input_focused = Arc::new(AtomicBool::new(true));
             let clone_is_input_focused = Arc::clone(&is_input_focused);
             window.listen("app_focus", move |ev| {
                 let is_focused = ev.payload().unwrap();
-                *is_input_focused.lock().unwrap() = if is_focused == "true" { true } else { false };
+                is_input_focused.store(
+                    if is_focused == "true" { true } else { false },
+                    std::sync::atomic::Ordering::Relaxed,
+                );
                 consume_selected_text();
             });
 
@@ -274,7 +277,7 @@ fn main() {
                             mouse_position = PhysicalPosition { x, y };
                         }
                         if !*listener_clone_translate_selected_text.lock().unwrap()
-                            || *clone_is_input_focused.lock().unwrap()
+                            || clone_is_input_focused.load(std::sync::atomic::Ordering::Relaxed)
                         {
                             return;
                         }
@@ -364,6 +367,7 @@ async fn speak<'a>(word: String, lang: String) {
         return;
     }
     let narrator = GTTSClient {
+        tld: "com",
         volume: 1.0,
         language: match lang.as_str() {
             "en" => English,
@@ -428,7 +432,9 @@ async fn speak<'a>(word: String, lang: String) {
             _ => English,
         },
     };
-    narrator.speak(&word);
+    if let Err(e) = narrator.speak(&word) {
+        eprintln!("{}", e)
+    }
 }
 
 #[tauri::command]
