@@ -116,10 +116,12 @@ export const Modal: React.FC<{
               <small>File Sizes: Download: D - Installed: I</small>
             </div>
             <div className={styles.dictItems}>
-              <>
-                {langs}
-              </>
+              {langs}
             </div>
+
+            <span style={{ display: 'block', fontSize: '.8rem', marginTop: '.4rem', color: 'rgb(var(--warning))' }}>
+              Installation takes intensive CPU usage.
+            </span>
           </div>
 
           <div className={`modal-actions ${styles.modalActions}`}>

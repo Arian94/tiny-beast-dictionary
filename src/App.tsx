@@ -125,9 +125,10 @@ function App() {
   }, [downloadedDicts]);
 
   useEffect(() => {
+    const isLangSwapped = fromRef.current === to && toRef.current === from;
     fromRef.current = from;
     toRef.current = to;
-    tranlationCompRef.current?.langSwapped();
+    isLangSwapped ? tranlationCompRef.current?.langSwapped() : tranlationCompRef.current?.translate()
   }, [from, to]);
 
   const swapLang = () => {

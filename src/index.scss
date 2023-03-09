@@ -10,6 +10,7 @@
   --deep-red: 78, 12, 12;
   --deep-gray: 54, 54, 54;
   --tertiary: 255, 228, 193;
+  --warning: 255, 255, 0;
 }
 
 body {
@@ -128,6 +129,8 @@ select {
 }
 
 [theme=light] {
+  --warning: 122, 66, 10;
+
   body {
     color: black;
     background-color: rgb(255, 255, 242);

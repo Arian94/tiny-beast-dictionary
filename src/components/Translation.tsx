@@ -8,6 +8,7 @@ import { INIT_DICT as INIT_DICT_MSG, OfflineDictAbbrs, OfflineDictsList, Offline
 import styles from './Translation.module.scss';
 
 export type TranslationCompOutput = {
+    translate: () => void,
     langSwapped: () => void,
     translationTextareaRef: MutableRefObject<string | OfflineTranslation>,
 }
@@ -98,12 +99,15 @@ export const Translation = React.forwardRef(({
     }
 
     useImperativeHandle<any, TranslationCompOutput>(ref, () => ({
+        translate() {
+            handler(inputVal);
+        },
         langSwapped() {
             setInputVal(translationTextareaRef.current as string);
-            handler(translationTextareaRef.current as string)
+            handler(translationTextareaRef.current as string);
         },
         translationTextareaRef,
-    }));
+    }), []);
 
     useEffect(() => {
         inputRef.current?.addEventListener('keypress', inputSpeakHandler);
