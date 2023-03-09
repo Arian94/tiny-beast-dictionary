@@ -19,7 +19,7 @@
     border-radius: inherit;
 
     &:active {
-      background-color: rgb(var(--secondary), .2);
+      background-color: rgba(var(--red) 0.5) !important;
     }
 
     &:disabled {
@@ -100,13 +100,34 @@
     width: 100%;
 
     h3 {
-      margin-block: 8px;
+      margin-block: .5rem;
+    }
+
+    h4 {
+      margin-block: .25rem;
+      margin-inline-start: .5rem;
+      color: rgb(var(--accent));
     }
   }
 
   .onlineMode {
-    .google, .examples {
+    .google, .examples, .definitions {
       padding: .5rem;
+    }
+
+    .definitions strong{
+      display: block;
+      color: rgb(var(--accent));
+    }
+
+    .examples, .definitions {
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+    }
+
+    .examples div {
+      margin-inline-start: .4rem;
     }
   }
 
@@ -143,7 +164,7 @@
   .input,
   .translation {
     button:active {
-      background-color: rgb(var(--tertiary));
+      background-color: rgb(var(--accent), .2) !important;
     }
   }
 }

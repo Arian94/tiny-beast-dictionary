@@ -177,8 +177,35 @@ export const Translation = React.forwardRef(({
         if (typeof translationTextareaRef.current === 'string' || !('google' in translationTextareaRef.current)) return;
 
         const { other } = translationTextareaRef.current;
+
+        if (other === 'not found') {
+            return <div className={styles.onlineMode}>
+                <h3>Google:</h3>
+                <div className={styles.google}
+                    style={{
+                        direction: activeTabRef.current === 'online' && (toRef.current === 'fa' || toRef.current === 'ar') ? 'rtl' : 'ltr',
+                    }}
+                >
+                    {translationTextareaRef.current.google}
+                </div>
+                <h3>Other Sources:</h3>
+                <div className={styles.examples}>{other}</div>
+            </div>
+        }
+
         const dom = new DOMParser().parseFromString(other, "text/html");
         const body = dom.getElementsByTagName('body')[0];
+        const imageId = dom.getElementById("imageId");
+        const script = dom.getElementsByTagName("script")[0];
+
+        imageId && body.removeChild(imageId);
+        script && body.removeChild(script);
+        const definition = body.firstChild;
+        definition && body.removeChild(definition);
+        let defStr = definition?.textContent;
+        defStr = defStr?.replace("Synonym:", "<strong>Synonym:</strong>");
+        defStr = defStr?.replace("Similar words:", "<strong style='display: block'>Similar words:</strong>");
+        defStr = defStr?.replace("Meaning:", "<strong style='display: block'>Meaning:</strong>");
 
         const ad = dom.getElementById("ad_marginbottom_0");
         ad && body.querySelector("#all")?.removeChild(ad);
@@ -188,6 +215,8 @@ export const Translation = React.forwardRef(({
             const anchor = divs?.[i]?.getElementsByTagName('a')?.[0];
             anchor && divs?.[i].removeChild(anchor);
         });
+
+        const examples = body.getElementsByTagName('div')[0].innerHTML;
 
         return (
             <div className={styles.onlineMode}>
@@ -199,8 +228,10 @@ export const Translation = React.forwardRef(({
                 >
                     {translationTextareaRef.current.google}
                 </div>
-                <h3>Examples:</h3>
-                <div className={styles.examples} dangerouslySetInnerHTML={{ __html: body.innerHTML }}></div>
+                <h3>Other Sources:</h3>
+                <div className={styles.definitions} dangerouslySetInnerHTML={{ __html: defStr ?? "" }}></div>
+                <h4>Examples:</h4>
+                <div className={styles.examples} dangerouslySetInnerHTML={{ __html: examples }}></div>
             </div>
         )
     }
@@ -293,10 +324,7 @@ export const Translation = React.forwardRef(({
                 </div>
             </div>
             <fieldset className={styles.translation}
-                style={{
-                    // direction: activeTabRef.current === 'online' && (toRef.current === 'fa' || toRef.current === 'ar') ? 'rtl' : 'ltr',
-                    opacity: loading ? .5 : 1,
-                }}>
+                style={{ opacity: loading ? .5 : 1, }}>
                 <legend>
                     Translation
                     <button

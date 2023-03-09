@@ -11,7 +11,7 @@ pub struct OtherTranslation {
 
 impl OtherTranslator {
     pub async fn translate(text: &str) -> Result<String, String> {
-        parse_result(fetch_page(text).await).await
+        parse_result(fetch_page(text).await)
     }
 }
 
@@ -28,16 +28,21 @@ struct Alaki<'a> {
     dir_code: &'a str,
 }
 
-async fn parse_result(result: Result<String, reqwest::Error>) -> Result<String, String> {
+fn parse_result(result: Result<String, reqwest::Error>) -> Result<String, String> {
     match result {
         Ok(body) => {
             let all = body
-                .split("<!--如果仅显示学生,并且该页有学生句子-->")
-                .nth(1)
-                .unwrap_or(&body);
+                .split("<!--最大高度为105px,能显示5行多的样子-->")
+                .nth(1);
+            if let None = all {
+                return Ok("not found".to_string());
+            }
 
-            let res = all.split("<!--all结束-->").nth(0).unwrap_or(&body);
-
+            let res = all
+                .unwrap()
+                .split("<!--all结束-->")
+                .nth(0)
+                .unwrap_or("not found");
             Ok(res.trim().to_string())
         }
         Err(err) => return Err(err.to_string()),
