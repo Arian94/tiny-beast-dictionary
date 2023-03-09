@@ -10,7 +10,12 @@ import styles from './Translation.module.scss';
 export type TranslationCompOutput = {
     translate: () => void,
     langSwapped: () => void,
-    translationTextareaRef: MutableRefObject<string | OfflineTranslation>,
+    translationTextareaRef: MutableRefObject<string | OnlineTranslation | OfflineTranslation>,
+}
+
+export type OnlineTranslation = {
+    google: string;
+    other: string;
 }
 
 export const Translation = React.forwardRef(({
@@ -37,7 +42,7 @@ export const Translation = React.forwardRef(({
     const [loading, setLoading] = useState<boolean>(false);
     const isSpeaking = useRef(false);
     const timeout = useRef<number>();
-    const translationTextareaRef = useRef<string | OfflineTranslation>('');
+    const translationTextareaRef = useRef<string | OnlineTranslation | OfflineTranslation>('');
 
     let clipboardBuffer: string;
 
@@ -49,10 +54,10 @@ export const Translation = React.forwardRef(({
     };
 
     const invokeBackend = async (word: string) => {
-        let translationVal: string | OfflineTranslation;
+        let translationVal: typeof translationTextareaRef.current;
         try {
             if (activeTabRef.current === 'online') {
-                translationVal = await invoke<string>('online_translate', { from: fromRef.current, to: toRef.current, word });
+                translationVal = await invoke<OnlineTranslation>('online_translate', { from: fromRef.current, to: toRef.current, word });
             } else {
                 if (selectedOfflineDictRef.current) {
                     if (!offlineDictsList[selectedOfflineDictRef.current].isBootUp) {
@@ -64,8 +69,8 @@ export const Translation = React.forwardRef(({
                     translationVal = '';
                 }
             }
-        } catch (er: any) {
-            translationVal = er;
+        } catch (er: unknown) {
+            translationVal = (!!er && typeof er === 'object' && 'message' in er) ? er.message as string : er as string;
         }
         translationTextareaRef.current = translationVal
         setLoading(false)
@@ -103,8 +108,9 @@ export const Translation = React.forwardRef(({
             handler(inputVal);
         },
         langSwapped() {
-            setInputVal(translationTextareaRef.current as string);
-            handler(translationTextareaRef.current as string);
+            const tr = (translationTextareaRef.current as OnlineTranslation).google
+            setInputVal(tr);
+            handler(tr);
         },
         translationTextareaRef,
     }), []);
@@ -167,8 +173,40 @@ export const Translation = React.forwardRef(({
         }
     }, []);
 
+    const renderOnlineTranslations = () => {
+        if (typeof translationTextareaRef.current === 'string' || !('google' in translationTextareaRef.current)) return;
+
+        const { other } = translationTextareaRef.current;
+        const dom = new DOMParser().parseFromString(other, "text/html");
+        const body = dom.getElementsByTagName('body')[0];
+
+        const ad = dom.getElementById("ad_marginbottom_0");
+        ad && body.querySelector("#all")?.removeChild(ad);
+
+        const divs = body.querySelector("#all")?.getElementsByTagName('div');
+        body.querySelector("#all")?.childNodes.forEach((c, i) => {
+            const anchor = divs?.[i]?.getElementsByTagName('a')?.[0];
+            anchor && divs?.[i].removeChild(anchor);
+        });
+
+        return (
+            <div className={styles.onlineMode}>
+                <h3>Google:</h3>
+                <div className={styles.google}
+                    style={{
+                        direction: activeTabRef.current === 'online' && (toRef.current === 'fa' || toRef.current === 'ar') ? 'rtl' : 'ltr',
+                    }}
+                >
+                    {translationTextareaRef.current.google}
+                </div>
+                <h3>Examples:</h3>
+                <div className={styles.examples} dangerouslySetInnerHTML={{ __html: body.innerHTML }}></div>
+            </div>
+        )
+    }
+
     const renderOfflineTranslations = () => {
-        if (typeof translationTextareaRef.current === 'string') return;
+        if (typeof translationTextareaRef.current === 'string' || !('pos' in translationTextareaRef.current)) return;
         return (
             <div className={styles.offlineMode}>
                 <h3>Position:</h3>
@@ -209,6 +247,7 @@ export const Translation = React.forwardRef(({
     }
 
     const offlineTranslations = useMemo(() => renderOfflineTranslations(), [translationTextareaRef.current]);
+    const onlineTranslations = useMemo(() => renderOnlineTranslations(), [translationTextareaRef.current]);
 
     const isLatin = useMemo(() => (function () {
         return (activeTabRef.current === 'online' && fromRef.current !== 'fa' && fromRef.current !== 'ar') ||
@@ -255,7 +294,7 @@ export const Translation = React.forwardRef(({
             </div>
             <fieldset className={styles.translation}
                 style={{
-                    direction: activeTabRef.current === 'online' && (toRef.current === 'fa' || toRef.current === 'ar') ? 'rtl' : 'ltr',
+                    // direction: activeTabRef.current === 'online' && (toRef.current === 'fa' || toRef.current === 'ar') ? 'rtl' : 'ltr',
                     opacity: loading ? .5 : 1,
                 }}>
                 <legend>
@@ -263,12 +302,17 @@ export const Translation = React.forwardRef(({
                     <button
                         title="Press CTRL + Enter"
                         className="glow-animation"
-                        onClick={() => speak(translationTextareaRef.current as string, toRef.current)}
+                        onClick={() => speak((translationTextareaRef.current as OnlineTranslation).google, toRef.current)}
                         style={{ display: !translationTextareaRef.current || toRef.current === 'fa' || activeTabRef.current === 'offline' ? 'none' : 'block' }}
                     >
                     </button>
                 </legend>
-                {typeof translationTextareaRef.current === 'string' ? translationTextareaRef.current : offlineTranslations}
+                {typeof translationTextareaRef.current === 'string' ? translationTextareaRef.current :
+                    <>
+                        {onlineTranslations}
+                        {offlineTranslations}
+                    </>
+                }
             </fieldset>
         </>
     );

@@ -1,6 +1,4 @@
-lazy_static! {
-    pub static ref CLIENT: reqwest::Client = reqwest::Client::builder().use_rustls_tls().build().unwrap();
-}
+use super::CLIENT;
 
 pub struct Translator<'a> {
     pub to: &'a str,

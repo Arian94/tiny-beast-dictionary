@@ -96,15 +96,23 @@
     }
   }
 
-  .offlineMode {
+  .onlineMode, .offlineMode {
     width: 100%;
-
-    :is(.pos, .senses) {
-      padding-inline: 4px;
-    }
 
     h3 {
       margin-block: 8px;
+    }
+  }
+
+  .onlineMode {
+    .google, .examples {
+      padding: .5rem;
+    }
+  }
+
+  .offlineMode {
+    :is(.pos, .senses) {
+      padding-inline: 4px;
     }
 
     .senses {

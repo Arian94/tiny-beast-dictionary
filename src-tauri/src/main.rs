@@ -6,9 +6,12 @@
 #[macro_use]
 extern crate lazy_static;
 
-mod google_translate;
+mod online_translate;
+use online_translate::{OnlineTranslator, OnlineTranslation};
+// mod google_translate;
 mod helper;
-use google_translate::Translator;
+// mod other_online_translate;
+// use google_translate::Translator;
 use helper::*;
 use ijson::IValue;
 use rdev::{
@@ -28,11 +31,14 @@ use tts_rust::languages::Languages::*;
 use tts_rust::tts::GTTSClient;
 
 const TRANSLATE_CLIPBOARD_TITLE: &'static str = "Translate Clipboard";
-const TRANSLATE_SELECTED_TEXT_TITLE: &'static str = "Translate Selected Text";
+const TRANSLATE_SELECTED_TEXT_TITLE: &'static str = "Translate Selected Text (Only X11)";
 
 fn toggle_menu_item_status(title: &str, status: bool) -> String {
     format!("{} {}", if status { "\u{25cf}" } else { "\u{25cb}" }, title)
 }
+
+//* icon change */
+//* add more definition, example to online mode */
 
 fn main() {
     let quit = CustomMenuItem::new("quit", "Quit");
@@ -356,8 +362,8 @@ async fn offline_translate(word: &str, lang: &str) -> Result<IValue, String> {
 }
 
 #[tauri::command]
-async fn online_translate(from: &str, to: &str, word: &str) -> Result<String, String> {
-    let translator_struct = Translator { from, to };
+async fn online_translate(from: &str, to: &str, word: &str) -> Result<OnlineTranslation, String> {
+    let translator_struct = OnlineTranslator { from, to };
     translator_struct.translate(&word).await
 }
 

@@ -1,4 +1,3 @@
-use crate::google_translate::CLIENT;
 use futures_util::StreamExt;
 use ijson::IObject;
 use serde::de::DeserializeOwned;
@@ -14,6 +13,8 @@ use std::{
 };
 use tauri::regex::Regex;
 use xz::read::XzDecoder;
+
+use crate::online_translate::CLIENT;
 
 pub static JSON_DIR: &str = "json_dictionaries";
 pub static SETTINGS_FILENAME: &str = "settings";
