@@ -37,9 +37,6 @@ fn toggle_menu_item_status(title: &str, status: bool) -> String {
     format!("{} {}", if status { "\u{25cf}" } else { "\u{25cb}" }, title)
 }
 
-//* icon change */
-//* add more definition, example to online mode */
-
 fn main() {
     let quit = CustomMenuItem::new("quit", "Quit");
     let show_hide = CustomMenuItem::new("show_hide", "Hide");

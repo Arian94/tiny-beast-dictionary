@@ -410,7 +410,7 @@ mod tests {
     #[test]
     fn make_icons() {
         let mut icon_family = IconFamily::new();
-        let icon_png_path = "icons/icon.png";
+        let icon_png_path = "../icon.png";
         // Read in another icon from a PNG file, and add it to the icon family.
         let file = BufReader::new(File::open(icon_png_path).unwrap());
         let image = Image::read_png(file).unwrap();
@@ -429,8 +429,8 @@ mod tests {
         let image = ico::IconImage::from_rgba_data(16, 16, rgba);
         icon_dir.add_entry(ico::IconDirEntry::encode(&image).unwrap());
         // Finally, write the ICO file to disk:
-        let file = std::fs::File::create("icons/icon.ico").unwrap();
-        icon_dir.write(file).unwrap();
+        // let file = std::fs::File::create("icons/icon.ico").unwrap();
+        // icon_dir.write(file).unwrap();
 
         // Read source image from file
         let img = ImageReader::open(icon_png_path).unwrap().decode().unwrap();
