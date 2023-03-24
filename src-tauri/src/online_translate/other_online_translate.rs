@@ -1,34 +1,67 @@
 use super::CLIENT;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub struct OtherTranslator {}
 
-#[derive(Serialize)]
-pub struct OtherTranslation {
-    word_type: String,
-    definitions: Vec<String>,
+#[derive(Serialize, Deserialize)]
+struct MyMemoryModel {
+    matches: Vec<MyMemoryTranslation>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MyMemoryTranslation {
+    segment: String,
+    translation: String,
+    #[serde(rename(deserialize = "match"))]
+    accuracy: f32,
 }
 
 impl OtherTranslator {
-    pub async fn translate(text: &str) -> Result<String, String> {
-        parse_result(fetch_page(text).await)
+    pub async fn sentencedict_translate(text: &str) -> Result<String, String> {
+        parse_sentencedict_resp(fetch_sentencedict_page(text).await)
+    }
+
+    pub async fn mymemory_translate(
+        text: &str,
+        from: &str,
+        to: &str,
+    ) -> Result<Vec<MyMemoryTranslation>, String> {
+        parse_mymemory_resp(fetch_mymemory(text, from, to).await)
     }
 }
 
-async fn fetch_page(text: &str) -> Result<String, reqwest::Error> {
+async fn fetch_sentencedict_page(text: &str) -> Result<String, reqwest::Error> {
     let formatted_url = format!("https://sentencedict.com/{}.html", text.trim());
     let content = CLIENT.get(formatted_url).send().await?.text().await?;
     Ok(content)
 }
 
-#[derive(Serialize)]
-struct Alaki<'a> {
-    event_name: &'a str,
-    text: &'a str,
-    dir_code: &'a str,
+async fn fetch_mymemory(text: &str, from: &str, to: &str) -> Result<String, reqwest::Error> {
+    let formatted_url = format!(
+        "https://api.mymemory.translated.net/get?q={}&langpair={}|{}",
+        text, from, to
+    );
+    let content = CLIENT.get(formatted_url).send().await?.text().await?;
+    Ok(content)
 }
 
-fn parse_result(result: Result<String, reqwest::Error>) -> Result<String, String> {
+fn parse_mymemory_resp(
+    result: Result<String, reqwest::Error>,
+) -> Result<Vec<MyMemoryTranslation>, String> {
+    match result {
+        Ok(body) => {
+            let json_body = serde_json::from_str::<MyMemoryModel>(&body);
+            if let Err(json_err) = json_body {
+                Err(json_err.to_string())
+            } else {
+                Ok(json_body.unwrap().matches)
+            }
+        }
+        Err(err) => return Err(err.to_string()),
+    }
+}
+
+fn parse_sentencedict_resp(result: Result<String, reqwest::Error>) -> Result<String, String> {
     match result {
         Ok(body) => {
             let all = body

@@ -4,7 +4,7 @@ import { emit } from "@tauri-apps/api/event";
 import { appWindow } from '@tauri-apps/api/window';
 import { useEffect, useMemo } from "react";
 import { cancelIcon, deleteIcon, downloadIcon } from "../../../assets/images";
-import { OfflineDictAbbrs, OfflineDictsList } from "../../../types/offline-mode";
+import { OfflineDictAbbrs, OfflineDictsList } from "../../../models/offline-mode";
 import styles from "./Modal.module.scss";
 
 export const NOT_DOWNLOADED = -2;

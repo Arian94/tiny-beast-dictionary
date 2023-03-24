@@ -3,19 +3,15 @@ import { readText } from '@tauri-apps/api/clipboard';
 import { listen } from '@tauri-apps/api/event';
 import { appWindow, PhysicalPosition } from '@tauri-apps/api/window';
 import React, { BaseSyntheticEvent, createRef, MutableRefObject, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { CountriesAbbrs } from '../types/countries';
-import { INIT_DICT as INIT_DICT_MSG, OfflineDictAbbrs, OfflineDictsList, OfflineTranslation } from '../types/offline-mode';
+import { CountriesAbbrs } from '../models/countries';
+import { INIT_DICT as INIT_DICT_MSG, OfflineDictAbbrs, OfflineDictsList, OfflineTranslation } from '../models/offline-mode';
+import { OnlineTranslation } from '../models/online.mode';
 import styles from './Translation.module.scss';
 
 export type TranslationCompOutput = {
     translate: () => void,
     langSwapped: () => void,
     translationTextareaRef: MutableRefObject<string | OnlineTranslation | OfflineTranslation>,
-}
-
-export type OnlineTranslation = {
-    google: string;
-    other: string;
 }
 
 export const Translation = React.forwardRef(({
@@ -176,24 +172,34 @@ export const Translation = React.forwardRef(({
     const renderOnlineTranslations = () => {
         if (typeof translationTextareaRef.current === 'string' || !('google' in translationTextareaRef.current)) return;
 
-        const { other } = translationTextareaRef.current;
+        const { google, sentencedict, mymemory } = translationTextareaRef.current;
 
-        if (other === 'not found') {
+        const mymemoryTrans = mymemory.map(({ accuracy, segment: word, translation }) =>
+            <div className={styles.definitions} style={{ marginBlock: ".5rem", backgroundColor: "rgb(var(--primary), .2)" }} key={word + translation}>
+                <div><span style={{ color: "rgb(var(--sky))" }}>Word:</span> {word}</div>
+                <div><span style={{ color: "rgb(var(--sky))" }}>Translation:</span> {translation}</div>
+                <small><span style={{ color: "rgb(var(--sky))" }}>Accuracy:</span> {(accuracy * 100).toFixed()}%</small>
+            </div>
+        )
+
+        if (sentencedict === 'not found') {
             return <div className={styles.onlineMode}>
-                <h3>Google:</h3>
+                <h3 style={{color: "mediumvioletred"}}>Google:</h3>
                 <div className={styles.google}
                     style={{
                         direction: activeTabRef.current === 'online' && (toRef.current === 'fa' || toRef.current === 'ar') ? 'rtl' : 'ltr',
                     }}
                 >
-                    {translationTextareaRef.current.google}
+                    {google}
                 </div>
-                <h3>Other Sources:</h3>
-                <div className={styles.examples}>{other}</div>
+                <h3 style={{color: "mediumvioletred"}}>Other Source:</h3>
+                <div>
+                    {mymemoryTrans}
+                </div>
             </div>
         }
 
-        const dom = new DOMParser().parseFromString(other, "text/html");
+        const dom = new DOMParser().parseFromString(sentencedict, "text/html");
         const body = dom.getElementsByTagName('body')[0];
         const imageId = dom.getElementById("imageId");
         const script = dom.getElementsByTagName("script")[0];
@@ -220,15 +226,18 @@ export const Translation = React.forwardRef(({
 
         return (
             <div className={styles.onlineMode}>
-                <h3>Google:</h3>
+                <h3 style={{ color: "mediumvioletred" }}>Google:</h3>
                 <div className={styles.google}
                     style={{
                         direction: activeTabRef.current === 'online' && (toRef.current === 'fa' || toRef.current === 'ar') ? 'rtl' : 'ltr',
                     }}
                 >
-                    {translationTextareaRef.current.google}
+                    {google}
                 </div>
-                <h3>Other Sources:</h3>
+                <h3 style={{ color: "mediumvioletred" }}>Other Sources:</h3>
+                {mymemoryTrans}
+                <hr />
+                <h4 style={{ color: "rgb(var(--warning), .8)", fontStyle: "italic", fontSize: ".9rem"}}>Gathered from Websites:</h4>
                 <div className={styles.definitions} dangerouslySetInnerHTML={{ __html: defStr ?? "" }}></div>
                 <h4>Examples:</h4>
                 <div className={styles.examples} dangerouslySetInnerHTML={{ __html: examples }}></div>
@@ -303,7 +312,6 @@ export const Translation = React.forwardRef(({
                     }} />
                 <button
                     title="Press Enter"
-                    className="glow-animation"
                     onClick={() => speak(inputVal, activeTabRef.current === 'online' ? fromRef.current : selectedOfflineDictRef.current || 'auto')}
                     style={{
                         opacity: !inputVal || isFa ? .5 : 1,

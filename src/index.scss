@@ -13,6 +13,7 @@
   --warning: 255, 255, 0;
   --accent: 3, 88, 167;
   --red: 199, 18, 18;
+  --sky: 41, 129, 243;
 }
 
 body {
@@ -26,6 +27,10 @@ body {
   -webkit-user-select: none;
   user-select: none;
   -moz-osx-font-smoothing: grayscale;
+}
+
+h3 {
+  font-size: 1.1em;
 }
 
 input,

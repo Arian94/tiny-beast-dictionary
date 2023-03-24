@@ -1,5 +1,5 @@
 import { MutableRefObject, useMemo } from 'react';
-import { OfflineDictAbbrs, OfflineDictsList, OfflineTranslation } from '../../../types/offline-mode';
+import { OfflineDictAbbrs, OfflineDictsList, OfflineTranslation } from '../../../models/offline-mode';
 import styles from './OfflineTab.module.scss';
 
 export function OfflineTab({

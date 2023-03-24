@@ -8,9 +8,9 @@ import { Modal, NOT_DOWNLOADED } from './components/language-options/offline-mod
 import { OfflineTab } from './components/language-options/offline-mode/OfflineTab';
 import { OnlineTab } from './components/language-options/OnlineTab';
 import { Translation, TranslationCompOutput } from './components/Translation';
-import { CountriesAbbrs, SavedConfig } from './types/countries';
-import { OfflineDictAbbrs, OfflineDictsList } from './types/offline-mode';
-import { Theme } from './types/theme';
+import { CountriesAbbrs, SavedConfig } from './models/countries';
+import { OfflineDictAbbrs, OfflineDictsList } from './models/offline-mode';
+import { Theme } from './models/theme';
 
 type DownloadStatus = { name: OfflineDictAbbrs; percentage: number };
 
@@ -103,11 +103,17 @@ function App() {
       emitNewConfig();
     });
 
+    if (import.meta.env.DEV) return;
+
+    const cm = (event: MouseEvent) => event.preventDefault();
+    window.addEventListener('contextmenu', cm);
+
     return () => {
       quit.then(d => d());
       themeListener.then(d => d());
       downloadingListener.then(d => d());
       closeApp.then(d => d());
+      window.removeEventListener('contextmenu', cm)
     }
   }, []);
 

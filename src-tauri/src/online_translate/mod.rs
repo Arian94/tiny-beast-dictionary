@@ -1,6 +1,7 @@
 mod google_translate;
 mod other_online_translate;
 
+use self::other_online_translate::{MyMemoryTranslation, OtherTranslator};
 use serde::Serialize;
 
 lazy_static! {
@@ -16,7 +17,8 @@ pub struct OnlineTranslator<'a> {
 #[derive(Serialize)]
 pub struct OnlineTranslation {
     google: String,
-    other: String,
+    sentencedict: String,
+    mymemory: Vec<MyMemoryTranslation>,
 }
 
 impl OnlineTranslator<'_> {
@@ -31,14 +33,20 @@ impl OnlineTranslator<'_> {
             return Err(ge);
         }
 
-        let other = other_online_translate::OtherTranslator::translate(text).await;
-        if let Err(oe) = other {
+        let sentencedict = OtherTranslator::sentencedict_translate(text).await;
+        if let Err(oe) = sentencedict {
+            return Err(oe);
+        }
+
+        let mymemory = OtherTranslator::mymemory_translate(text, self.from, self.to).await;
+        if let Err(oe) = mymemory {
             return Err(oe);
         }
 
         Ok(OnlineTranslation {
             google: google.unwrap(),
-            other: other.unwrap(),
+            sentencedict: sentencedict.unwrap(),
+            mymemory: mymemory.unwrap(),
         })
     }
 }

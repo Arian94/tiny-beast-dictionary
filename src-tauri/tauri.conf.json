@@ -94,8 +94,8 @@
         "fullscreen": false,
         "minWidth": 290,
         "width": 290,
-        "minHeight": 220,
-        "height": 220,
+        "minHeight": 250,
+        "height": 250,
         "resizable": true,
         "center": true,
         "transparent": true
