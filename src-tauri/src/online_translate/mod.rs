@@ -34,13 +34,13 @@ impl OnlineTranslator<'_> {
         }
 
         let sentencedict = OtherTranslator::sentencedict_translate(text).await;
-        if let Err(oe) = sentencedict {
-            return Err(oe);
+        if let Err(se) = sentencedict {
+            return Err(se);
         }
 
         let mymemory = OtherTranslator::mymemory_translate(text, self.from, self.to).await;
-        if let Err(oe) = mymemory {
-            return Err(oe);
+        if let Err(me) = mymemory {
+            return Err(me);
         }
 
         Ok(OnlineTranslation {

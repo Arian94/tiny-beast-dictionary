@@ -37,9 +37,15 @@ async fn fetch_sentencedict_page(text: &str) -> Result<String, reqwest::Error> {
 }
 
 async fn fetch_mymemory(text: &str, from: &str, to: &str) -> Result<String, reqwest::Error> {
+    let fr = if from == "auto" { "en" } else { from };
+
+    if fr == to {
+        return Ok("".to_string());
+    }
+
     let formatted_url = format!(
         "https://api.mymemory.translated.net/get?q={}&langpair={}|{}",
-        text, from, to
+        text, fr, to
     );
     let content = CLIENT.get(formatted_url).send().await?.text().await?;
     Ok(content)
@@ -50,6 +56,10 @@ fn parse_mymemory_resp(
 ) -> Result<Vec<MyMemoryTranslation>, String> {
     match result {
         Ok(body) => {
+            if &body == "" {
+                return Ok(vec![]);
+            }
+
             let json_body = serde_json::from_str::<MyMemoryModel>(&body);
             if let Err(json_err) = json_body {
                 Err(json_err.to_string())

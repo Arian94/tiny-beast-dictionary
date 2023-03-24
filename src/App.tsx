@@ -16,16 +16,17 @@ type DownloadStatus = { name: OfflineDictAbbrs; percentage: number };
 
 function App() {
   const [activeTab, setActiveTab] = useState<'online' | 'offline'>('online');
-  const activeTabRef = useRef<'online' | 'offline'>('online');
-  const fromRef = useRef<CountriesAbbrs | 'auto'>('auto');
+  const activeTabRef = useRef<'online' | 'offline'>(activeTab);
   const [from, setFrom] = useState<CountriesAbbrs | 'auto'>('auto');
-  const toRef = useRef<CountriesAbbrs>('en');
+  const fromRef = useRef<CountriesAbbrs | 'auto'>(from);
   const [to, setTo] = useState<CountriesAbbrs>('en');
+  const toRef = useRef<CountriesAbbrs>(to);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOfflineDict, setSelectedOfflineDict] = useState<OfflineDictAbbrs>();
   const [downloadedDicts, setDownloadedDicts] = useState<OfflineDictAbbrs[]>([]);
   const selectedOfflineDictRef = useRef<OfflineDictAbbrs>();
   const downloadedDictsRef = useRef<OfflineDictAbbrs[]>([]);
+  const isLangSwapped = useRef(false);
   const [offlineDictsList, setOfflineDictsList] = useState<OfflineDictsList>(
     {
       en: { percentage: NOT_DOWNLOADED, zipped: '94 MB', extracted: '621 MB', name: "English", isBootUp: false },
@@ -131,13 +132,14 @@ function App() {
   }, [downloadedDicts]);
 
   useEffect(() => {
-    const isLangSwapped = fromRef.current === to && toRef.current === from;
     fromRef.current = from;
     toRef.current = to;
-    isLangSwapped ? tranlationCompRef.current?.langSwapped() : tranlationCompRef.current?.translate()
+    isLangSwapped.current ? tranlationCompRef.current?.langSwapped() : tranlationCompRef.current?.translate();
+    isLangSwapped.current = false;
   }, [from, to]);
 
   const swapLang = () => {
+    isLangSwapped.current = true;
     setFrom(to);
     setTo(from === 'auto' ? to === 'en' ? 'fr' : 'en' : from);
   }

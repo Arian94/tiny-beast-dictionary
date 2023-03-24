@@ -184,7 +184,7 @@ export const Translation = React.forwardRef(({
 
         if (sentencedict === 'not found') {
             return <div className={styles.onlineMode}>
-                <h3 style={{color: "mediumvioletred"}}>Google:</h3>
+                <h3 style={{ color: "mediumvioletred" }}>Google:</h3>
                 <div className={styles.google}
                     style={{
                         direction: activeTabRef.current === 'online' && (toRef.current === 'fa' || toRef.current === 'ar') ? 'rtl' : 'ltr',
@@ -192,10 +192,12 @@ export const Translation = React.forwardRef(({
                 >
                     {google}
                 </div>
-                <h3 style={{color: "mediumvioletred"}}>Other Source:</h3>
-                <div>
-                    {mymemoryTrans}
-                </div>
+                {!!mymemory.length && <><h3 style={{ color: "mediumvioletred" }}>Other Source:</h3>
+                    <div>
+                        {mymemoryTrans}
+                    </div>
+                </>
+                }
             </div>
         }
 
@@ -237,7 +239,7 @@ export const Translation = React.forwardRef(({
                 <h3 style={{ color: "mediumvioletred" }}>Other Sources:</h3>
                 {mymemoryTrans}
                 <hr />
-                <h4 style={{ color: "rgb(var(--warning), .8)", fontStyle: "italic", fontSize: ".9rem"}}>Gathered from Websites:</h4>
+                <h4 style={{ color: "rgb(var(--warning), .8)", fontStyle: "italic", fontSize: ".9rem" }}>Gathered from Websites:</h4>
                 <div className={styles.definitions} dangerouslySetInnerHTML={{ __html: defStr ?? "" }}></div>
                 <h4>Examples:</h4>
                 <div className={styles.examples} dangerouslySetInnerHTML={{ __html: examples }}></div>

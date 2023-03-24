@@ -7,7 +7,7 @@ license = "GFDL-1.3-or-later"
 name = "tiny-beast-dictionary"
 repository = "https://github.com/Arian94/tiny-beast-dictionary"
 rust-version = "1.67.1"
-version = "1.9.42"
+version = "1.9.43"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

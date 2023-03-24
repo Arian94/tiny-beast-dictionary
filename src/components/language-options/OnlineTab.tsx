@@ -11,13 +11,11 @@ export function OnlineTab({
     to: CountriesAbbrs, setTo: React.Dispatch<React.SetStateAction<CountriesAbbrs>>,
     swapLang: () => void
 }) {
-    const renderLangOptions = (option: 'from' | 'to') => {
-        return (Object.keys(onlineDictionaries) as CountriesNames[])
-            .map(country => <option key={option + country} value={onlineDictionaries[country]}>{country}</option>)
-    }
+    const renderLangOptions = (option: 'from' | 'to') => (Object.keys(onlineDictionaries) as CountriesNames[])
+        .map(country => <option key={option + country} value={onlineDictionaries[country]}>{country}</option>);
 
-    const fromOptions = useMemo(() => renderLangOptions('from'), [from, to]);
-    const toOptions = useMemo(() => renderLangOptions('to'), [from, to]);
+    const fromOptions = useMemo(() => renderLangOptions('from'), []);
+    const toOptions = useMemo(() => renderLangOptions('to'), []);
 
     return (
         <div className={styles.languageOptions}>
