@@ -158,7 +158,7 @@ export const Translation = React.forwardRef(({
             if (toRef.current === 'fa') return;
             if (e.code !== 'Enter' || !e.ctrlKey) return;
             if (activeTabRef.current === 'offline') return;
-            speak(translationTextareaRef.current as string, toRef.current);
+            speak((translationTextareaRef.current as OnlineTranslation).google, toRef.current);
         }
         window.addEventListener('keypress', translationSpeakHandler);
 
