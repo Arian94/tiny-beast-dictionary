@@ -33,21 +33,22 @@ export const Translation = React.forwardRef(({
     offlineDictsList: OfflineDictsList,
     emitNewConfig(selectedOfflineDict?: OfflineDictAbbrs | null, downloadedDicts?: OfflineDictAbbrs[]): Promise<void>,
 }, ref: ((instance: any) => void) | MutableRefObject<TranslationCompOutput | null> | null) => {
-    const inputRef = createRef<HTMLInputElement>();
+    const inputRef = useRef<HTMLInputElement>(null);
     const [inputVal, setInputVal] = useState("");
     const [loading, setLoading] = useState<boolean>(false);
     const isSpeaking = useRef(false);
     const timeout = useRef<number>();
+    const fieldsetRef = useRef<HTMLDivElement>(null);
     const translationTextareaRef = useRef<string | OnlineTranslation | OfflineTranslation>('');
 
     let clipboardBuffer: string;
 
-    const handler = (word: string | undefined) => {
+    const handler = async (word: string | undefined) => {
         if (!word?.trim()) return;
         if (!translationTextareaRef.current) translationTextareaRef.current = "searching...";
         setLoading(true);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        invokeBackend(word);
+        await invokeBackend(word);
+        fieldsetRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const invokeBackend = async (word: string) => {
@@ -87,7 +88,7 @@ export const Translation = React.forwardRef(({
         setTimeout(() => this.select())
     }
 
-    const speak = (word: string | undefined, lang: CountriesAbbrs | 'auto') => {
+    const speak = (word = '', lang: CountriesAbbrs | 'auto') => {
         if (isSpeaking.current) return;
         isSpeaking.current = true;
         invoke<void>('speak', { word, lang }).then(() => isSpeaking.current = false);
@@ -132,6 +133,7 @@ export const Translation = React.forwardRef(({
         const appFocus = appWindow.onFocusChanged(({ payload: isFocused }) => {
             appWindow.emit('app_focus', isFocused);
             if (!isFocused) return;
+            inputRef.current?.focus();
             if (!shouldTranslateClipboardRef.current) return;
             readText().then(clip => { handler(readClipboardAndTrim(clip) ?? "") });
         });
@@ -336,21 +338,21 @@ export const Translation = React.forwardRef(({
             </div>
             <fieldset className={styles.translation}
                 style={{ opacity: loading ? .5 : 1, }}>
-                <legend>
+                <div className={styles.legend}>
                     Translation
                     <button
                         title="Press CTRL + Enter"
                         className="glow-animation"
                         onClick={() => speak((translationTextareaRef.current as OnlineTranslation).google, toRef.current)}
-                        style={{ display: !translationTextareaRef.current || toRef.current === 'fa' || activeTabRef.current === 'offline' ? 'none' : 'block' }}
+                        style={{ display: !translationTextareaRef.current || toRef.current === 'fa' || activeTabRef.current === 'offline' ? 'none' : 'inline-block' }}
                     >
                     </button>
-                </legend>
+                </div>
                 {typeof translationTextareaRef.current === 'string' ? translationTextareaRef.current :
-                    <>
+                    <div ref={fieldsetRef} className={styles.transContainer}>
                         {onlineTranslations}
                         {offlineTranslations}
-                    </>
+                    </div>
                 }
             </fieldset>
         </>

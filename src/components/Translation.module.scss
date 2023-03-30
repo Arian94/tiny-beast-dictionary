@@ -52,13 +52,15 @@
   }
 }
 
+$transHeight: calc(100vh - 122px);
+
 .translation {
   position: relative;
   display: flex;
   font-family: 'Noto Naskh';
   word-break: break-all;
   line-height: 20px;
-  min-height: calc(100vh - 122px);
+  min-height: $transHeight;
   justify-content: space-between;
   padding-block-start: 8px;
   padding-inline: 4px;
@@ -70,33 +72,40 @@
   -webkit-user-select: text;
   user-select: text;
 
-  legend {
-    direction: ltr;
+  .legend {
+    display: flex;
     position: absolute;
-    font-size: 10px;
+    justify-content: space-between;
     width: 100%;
-    top: -.7rem;
-    left: 2px;
-    background-color: transparent;
-  }
+    font-size: 10px;
+    top: -0.7rem;
+    left: .1rem;
+    padding-inline-start: .1rem;
 
-  button {
-    position: absolute;
-    height: 28px;
-    min-width: 30px;
-    top: -3px;
-    right: 10px;
-    background: url(../assets/speaker.svg) no-repeat center;
-    background-color: rgba(var(--secondary), .5);
-    background-size: 20px;
-    border-radius: 15px;
+    button {
+      position: relative;
+      height: 28px;
+      min-width: 30px;
+      bottom: 3px;
+      margin-inline-end: .5rem;
+      background: url(../assets/speaker.svg) no-repeat center;
+      background-color: rgba(var(--secondary), .5);
+      background-size: 20px;
 
-    &:active {
-      background-color: rgba(var(--secondary), .7) !important;
+      &:active {
+        background-color: rgba(var(--secondary), .7) !important;
+      }
     }
   }
 
-  .onlineMode, .offlineMode {
+  .transContainer {
+    height: $transHeight;
+    width: 100%;
+    overflow: auto;
+  }
+
+  .onlineMode,
+  .offlineMode {
     width: 100%;
 
     h3 {
@@ -111,16 +120,20 @@
   }
 
   .onlineMode {
-    .google, .examples, .definitions {
+
+    .google,
+    .examples,
+    .definitions {
       padding: .5rem;
     }
 
-    .definitions strong{
+    .definitions strong {
       display: block;
       color: rgb(var(--accent));
     }
 
-    .examples, .definitions {
+    .examples,
+    .definitions {
       display: flex;
       flex-direction: column;
       gap: .5rem;
@@ -156,5 +169,11 @@
         border: 1px dashed pink;
       }
     }
+  }
+}
+
+[theme=light] {
+  .legend button {
+    background-color: rgba(var(--tertiary), .5);
   }
 }
