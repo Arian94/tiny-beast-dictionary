@@ -46,7 +46,7 @@
     },
     "bundle": {
       "active": true,
-      "category": "DeveloperTool",
+      "category": "Education",
       "copyright": "",
       "deb": {
         "depends": []
@@ -58,7 +58,7 @@
         "icons/32x32.png",
         "icons/128x128.png"
       ],
-      "identifier": "com.tiny-beast-dictionary",
+      "identifier": "io.github.Arian94.Tiny-beast-dictionary",
       "longDescription": "tiny app for online/offline dictionaries. it works using google translate api and downloads dictionaries from kaikki.org to be used offline.",
       "macOS": {
         "entitlements": null,

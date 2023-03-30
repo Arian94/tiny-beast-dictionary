@@ -44,6 +44,7 @@ export const Translation = React.forwardRef(({
 
     const handler = (word: string | undefined) => {
         if (!word?.trim()) return;
+        if (!translationTextareaRef.current) translationTextareaRef.current = "searching...";
         setLoading(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
         invokeBackend(word);
