@@ -131,7 +131,6 @@ export const Translation = React.forwardRef(({
             if (trimmed.search(/[{}\[\]<>]/) >= 0) return;
 
             clipboardBuffer = trimmed;
-            if (inputRef.current) inputRef.current.value = trimmed;
             return trimmed
         }
 
@@ -143,8 +142,10 @@ export const Translation = React.forwardRef(({
             inputRef.current?.select();
             if (!shouldTranslateClipboardRef.current) return;
             const clip = await readText()
-            const trimmed = readClipboardAndTrim(clip) ?? "";
-            !!trimmed && setLoading(true);
+            const trimmed = readClipboardAndTrim(clip);
+            if (!trimmed) return;
+            if (inputRef.current) inputRef.current.value = trimmed;
+            setLoading(true);
             setTimeout(() => search(trimmed), 100);
         });
 
@@ -156,8 +157,9 @@ export const Translation = React.forwardRef(({
             });
 
         const translateSelectedTextListener = listen<string>('text_selected', async ({ payload: text }) => {
+            if (!text) return;
             if (inputRef.current) inputRef.current.value = text;
-            !!text && setLoading(true);
+            setLoading(true);
             setTimeout(() => search(text), 100);
             const pos = await appWindow.outerPosition();
             await appWindow.setPosition(new PhysicalPosition(pos.x, pos.y - 36));         // neccessary as appWindow.show() forgets the position.
