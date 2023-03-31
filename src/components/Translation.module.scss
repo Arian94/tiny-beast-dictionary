@@ -114,21 +114,30 @@ $transHeight: calc(100vh - 122px);
 
     h4 {
       margin-block: .25rem;
-      margin-inline-start: .5rem;
       color: rgb(var(--accent));
+    }
+
+    .definitions {
+      padding: .5rem;
     }
   }
 
   .onlineMode {
 
+    h3 {
+      color: mediumvioletred;
+    }
+
+    h4 {
+      margin-inline-start: .5rem;
+    }
+
     .google,
-    .examples,
-    .definitions {
+    .examples {
       padding: .5rem;
     }
 
     .definitions strong {
-      display: block;
       color: rgb(var(--accent));
     }
 
@@ -147,6 +156,19 @@ $transHeight: calc(100vh - 122px);
   .offlineMode {
     :is(.pos, .senses) {
       padding-inline: 4px;
+    }
+
+    h3,
+    h4 {
+      color: rgb(var(--accent));
+    }
+
+    span {
+      color: rgb(var(--sky));
+    }
+
+    p {
+      margin-block: .5rem;
     }
 
     .senses {

@@ -87,7 +87,7 @@ function App() {
         setSelectedOfflineDict(selectedOfflineDict);
         setDownloadedDicts(downloadedDicts ?? []);
         setRefCurrent(shouldTranslateClipboardRef, !!tc);
-        setRefCurrent(_shouldTranslateSelectedTextRef, ts ?? true);
+        setRefCurrent(_shouldTranslateSelectedTextRef, !!ts);
         changeTheme(theme);
       }).then(() => emit('front_is_up'));
 

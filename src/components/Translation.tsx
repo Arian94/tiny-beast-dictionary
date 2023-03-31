@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api';
 import { readText } from '@tauri-apps/api/clipboard';
 import { listen } from '@tauri-apps/api/event';
 import { appWindow, PhysicalPosition } from '@tauri-apps/api/window';
-import React, { BaseSyntheticEvent, createRef, MutableRefObject, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import React, { BaseSyntheticEvent, MutableRefObject, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { CountriesAbbrs } from '../models/countries';
 import { INIT_DICT as INIT_DICT_MSG, OfflineDictAbbrs, OfflineDictsList, OfflineTranslation } from '../models/offline-mode';
 import { OnlineTranslation } from '../models/online.mode';
@@ -13,6 +13,8 @@ export type TranslationCompOutput = {
     langSwapped: () => void,
     translationTextareaRef: MutableRefObject<string | OnlineTranslation | OfflineTranslation>,
 }
+
+const SEARCHING_TRANS = "searching...";
 
 export const Translation = React.forwardRef(({
     activeTabRef,
@@ -34,7 +36,6 @@ export const Translation = React.forwardRef(({
     emitNewConfig(selectedOfflineDict?: OfflineDictAbbrs | null, downloadedDicts?: OfflineDictAbbrs[]): Promise<void>,
 }, ref: ((instance: any) => void) | MutableRefObject<TranslationCompOutput | null> | null) => {
     const inputRef = useRef<HTMLInputElement>(null);
-    const [inputVal, setInputVal] = useState("");
     const [loading, setLoading] = useState<boolean>(false);
     const isSpeaking = useRef(false);
     const timeout = useRef<number>();
@@ -43,35 +44,42 @@ export const Translation = React.forwardRef(({
 
     let clipboardBuffer: string;
 
-    const handler = async (word: string | undefined) => {
-        if (!word?.trim()) return;
-        if (!translationTextareaRef.current) translationTextareaRef.current = "searching...";
+    const invokeBackend = async (word: string) => {
+        try {
+            if (activeTabRef.current === 'online') {
+                const from = fromRef.current, to = toRef.current;
+                const d = await invoke<OnlineTranslation>('online_translate', { from, to, word });
+                if (word === inputRef.current?.value && from === fromRef.current && to === toRef.current) {
+                    translationTextareaRef.current = d;
+                    setLoading(false);
+                }
+            } else {
+                if (!selectedOfflineDictRef.current) return;
+                if (!offlineDictsList[selectedOfflineDictRef.current].isBootUp) {
+                    offlineDictsList[selectedOfflineDictRef.current].isBootUp = true;
+                    translationTextareaRef.current = INIT_DICT_MSG;
+                }
+                translationTextareaRef.current = await invoke<OfflineTranslation>('offline_translate', { word, lang: selectedOfflineDictRef.current });
+                setLoading(false);
+            }
+        } catch (er: unknown) {
+            translationTextareaRef.current = (!!er && typeof er === 'object' && 'message' in er) ? er.message as string : er as string;
+            setLoading(false);
+        }
+    }
+
+    const search = async (word: string | undefined) => {
+        if (!word?.trim()) return inputCleared(translationTextareaRef.current === SEARCHING_TRANS);
+        if (!translationTextareaRef.current) translationTextareaRef.current = SEARCHING_TRANS;
         setLoading(true);
         await invokeBackend(word);
         fieldsetRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const invokeBackend = async (word: string) => {
-        let translationVal: typeof translationTextareaRef.current;
-        try {
-            if (activeTabRef.current === 'online') {
-                translationVal = await invoke<OnlineTranslation>('online_translate', { from: fromRef.current, to: toRef.current, word });
-            } else {
-                if (selectedOfflineDictRef.current) {
-                    if (!offlineDictsList[selectedOfflineDictRef.current].isBootUp) {
-                        offlineDictsList[selectedOfflineDictRef.current].isBootUp = true;
-                        translationTextareaRef.current = INIT_DICT_MSG;
-                    }
-                    translationVal = await invoke<OfflineTranslation>('offline_translate', { word, lang: selectedOfflineDictRef.current });
-                } else {
-                    translationVal = '';
-                }
-            }
-        } catch (er: unknown) {
-            translationVal = (!!er && typeof er === 'object' && 'message' in er) ? er.message as string : er as string;
-        }
-        translationTextareaRef.current = translationVal
-        setLoading(false)
+    const inputCleared = (clearTransText: boolean) => {
+        if (inputRef.current) inputRef.current.value = '';
+        if (clearTransText) translationTextareaRef.current = '';
+        setLoading(false);
     }
 
     function inputSpeakHandler(this: HTMLInputElement, e: KeyboardEvent) {
@@ -96,19 +104,18 @@ export const Translation = React.forwardRef(({
 
     const onInputVal = (event: BaseSyntheticEvent<MouseEvent, HTMLInputElement, HTMLInputElement>) => {
         const { value } = event.target;
-        setInputVal(value);
         timeout.current !== undefined && clearTimeout(timeout.current);
-        timeout.current = setTimeout(() => { handler(value) }, 700);
+        timeout.current = setTimeout(() => { search(value) }, 700);
     }
 
     useImperativeHandle<any, TranslationCompOutput>(ref, () => ({
         translate() {
-            handler(inputVal);
+            search(inputRef.current?.value);
         },
         langSwapped() {
-            const tr = (translationTextareaRef.current as OnlineTranslation).google
-            setInputVal(tr);
-            handler(tr);
+            const tr = (translationTextareaRef.current as OnlineTranslation).google ?? inputRef.current?.value;
+            if (inputRef.current) inputRef.current.value = tr;
+            search(tr);
         },
         translationTextareaRef,
     }), []);
@@ -124,18 +131,21 @@ export const Translation = React.forwardRef(({
             if (trimmed.search(/[{}\[\]<>]/) >= 0) return;
 
             clipboardBuffer = trimmed;
-            setInputVal(trimmed);
+            if (inputRef.current) inputRef.current.value = trimmed;
             return trimmed
         }
 
         // run readText once to store/read clipboard content which may exist before opening the app. 
         readText().then(clip => clipboardBuffer = clip?.trim() ?? '');
-        const appFocus = appWindow.onFocusChanged(({ payload: isFocused }) => {
+        const appFocus = appWindow.onFocusChanged(async ({ payload: isFocused }) => {
             appWindow.emit('app_focus', isFocused);
             if (!isFocused) return;
-            inputRef.current?.focus();
+            inputRef.current?.select();
             if (!shouldTranslateClipboardRef.current) return;
-            readText().then(clip => { handler(readClipboardAndTrim(clip) ?? "") });
+            const clip = await readText()
+            const trimmed = readClipboardAndTrim(clip) ?? "";
+            !!trimmed && setLoading(true);
+            setTimeout(() => search(trimmed), 100);
         });
 
         const translateClipboardListener = listen<boolean[]>('tray_settings',
@@ -146,8 +156,9 @@ export const Translation = React.forwardRef(({
             });
 
         const translateSelectedTextListener = listen<string>('text_selected', async ({ payload: text }) => {
-            setInputVal(text);
-            handler(text)
+            if (inputRef.current) inputRef.current.value = text;
+            !!text && setLoading(true);
+            setTimeout(() => search(text), 100);
             const pos = await appWindow.outerPosition();
             await appWindow.setPosition(new PhysicalPosition(pos.x, pos.y - 36));         // neccessary as appWindow.show() forgets the position.
             await appWindow.isVisible() ? appWindow.unminimize() : appWindow.show();
@@ -214,9 +225,10 @@ export const Translation = React.forwardRef(({
         const definition = body.firstChild;
         definition && body.removeChild(definition);
         let defStr = definition?.textContent;
+        defStr = defStr?.replace("Antonym:", "<strong>Antonym:</strong>");
         defStr = defStr?.replace("Synonym:", "<strong>Synonym:</strong>");
-        defStr = defStr?.replace("Similar words:", "<strong style='display: block'>Similar words:</strong>");
-        defStr = defStr?.replace("Meaning:", "<strong style='display: block'>Meaning:</strong>");
+        defStr = defStr?.replace("Similar words:", "<strong>Similar words:</strong>");
+        defStr = defStr?.replace("Meaning:", "<strong>Meaning:</strong>");
 
         const ad = dom.getElementById("ad_marginbottom_0");
         ad && body.querySelector("#all")?.removeChild(ad);
@@ -231,7 +243,7 @@ export const Translation = React.forwardRef(({
 
         return (
             <div className={styles.onlineMode}>
-                <h3 style={{ color: "mediumvioletred" }}>Google:</h3>
+                <h3>Google:</h3>
                 <div className={styles.google}
                     style={{
                         direction: activeTabRef.current === 'online' && (toRef.current === 'fa' || toRef.current === 'ar') ? 'rtl' : 'ltr',
@@ -239,7 +251,7 @@ export const Translation = React.forwardRef(({
                 >
                     {google}
                 </div>
-                <h3 style={{ color: "mediumvioletred" }}>Other Sources:</h3>
+                <h3>Other Sources:</h3>
                 {mymemoryTrans}
                 <hr />
                 <h4 style={{ color: "rgb(var(--warning), .8)", fontStyle: "italic", fontSize: ".9rem" }}>Gathered from Websites:</h4>
@@ -260,13 +272,13 @@ export const Translation = React.forwardRef(({
                 <div className={styles.senses}>
                     {translationTextareaRef.current.senses.map(s => {
                         return <div key={s.glosses.join('')}>
-                            {!!s.categories?.length && <p key={s.categories[0].name}>Categories: {s.categories.map(c => c.name).join(", ")}</p>}
-                            <p>Glosses: {s.glosses.join(' ')}</p>
-                            {s.tags && <p>Tags: {s.tags.join(', ')}</p>}
-                            {!!s.form_of?.length && <p >Form of: {s.form_of[0].word} </p>}
-                            {!!s.alt_of?.length && <p >Alternative of: {s.alt_of[0].word} </p>}
+                            {!!s.categories?.length && <p key={s.categories[0].name}><span>Categories:</span> {s.categories.map(c => c.name).join(", ")}</p>}
+                            <p><span>Glosses:</span> {s.glosses.join(' ')}</p>
+                            {s.tags && <p><span>Tags:</span> {s.tags.join(', ')}</p>}
+                            {!!s.form_of?.length && <p><span>Form of:</span> {s.form_of[0].word} </p>}
+                            {!!s.alt_of?.length && <p><span>Alternative of:</span> {s.alt_of[0].word} </p>}
                             {!!s.examples?.length && <div>
-                                <strong >Examples:</strong>
+                                <h4>Examples:</h4>
                                 {s.examples.map(e => {
                                     return <div key={e.text} className={styles.examples}>
                                         {e.text && <p><span>Text:</span> {e.text}</p>}
@@ -282,10 +294,14 @@ export const Translation = React.forwardRef(({
                 </div>
 
                 {translationTextareaRef.current.etymology_text && <div>
-                    <strong key="ety text">Etymology text:</strong> {translationTextareaRef.current.etymology_text}
+                    <h3 key="ety text">Etymology text:</h3>
+                    <div className={styles.definitions}>{translationTextareaRef.current.etymology_text}</div>
                 </div>}
                 {translationTextareaRef.current.etymology_templates && !!translationTextareaRef.current.etymology_templates.length && <div>
-                    <strong key="ety temp">Etymology templates:</strong> {translationTextareaRef.current.etymology_templates.filter(et => et.expansion).map(et => et.expansion).join(", ")}
+                    <h3 key="ety temp">Etymology templates:</h3>
+                    <div className={styles.definitions}>
+                        {translationTextareaRef.current.etymology_templates.filter(et => et.expansion).map(et => et.expansion).join(", ")}
+                    </div>
                 </div>}
             </div>
         )
@@ -308,7 +324,7 @@ export const Translation = React.forwardRef(({
             <div className={styles.input}>
                 <input ref={inputRef} autoFocus maxLength={256} disabled={translationTextareaRef.current === INIT_DICT_MSG}
                     placeholder={isFa ? 'جستجو...' : 'search...'}
-                    value={inputVal} onInput={onInputVal}
+                    onInput={onInputVal}
                     style={{
                         direction: isLatin ? 'ltr' : 'rtl',
                         fontFamily: isLatin ? 'inherit' : 'Noto Naskh',
@@ -317,14 +333,14 @@ export const Translation = React.forwardRef(({
                     }} />
                 <button
                     title="Press Enter"
-                    onClick={() => speak(inputVal, activeTabRef.current === 'online' ? fromRef.current : selectedOfflineDictRef.current || 'auto')}
+                    onClick={() => speak(inputRef.current?.value, activeTabRef.current === 'online' ? fromRef.current : selectedOfflineDictRef.current || 'auto')}
                     style={{
-                        opacity: !inputVal || isFa ? .5 : 1,
+                        opacity: !inputRef.current?.value || isFa ? .5 : 1,
                         left: isLatin ? '2px' : 'unset',
                         right: isLatin ? 'unset' : '2px',
                         transform: isLatin ? 'unset' : 'scaleX(-1)'
                     }}
-                    disabled={!inputVal || isFa}>
+                    disabled={!inputRef.current?.value || isFa}>
                 </button>
                 <div className={styles.searchErase}
                     style={{
@@ -332,8 +348,8 @@ export const Translation = React.forwardRef(({
                         left: isLatin ? 'unset' : '2px',
                         right: isLatin ? '2px' : 'unset'
                     }}>
-                    <button className="glow-animation" onClick={() => handler(inputVal)}></button>
-                    <button className="glow-animation" onClick={() => setInputVal('')}></button>
+                    <button className="glow-animation" onClick={() => search(inputRef.current?.value)}></button>
+                    <button className="glow-animation" disabled={loading && activeTabRef.current === 'offline'} onClick={() => inputCleared(translationTextareaRef.current === SEARCHING_TRANS)}></button>
                 </div>
             </div>
             <fieldset className={styles.translation}
@@ -344,7 +360,7 @@ export const Translation = React.forwardRef(({
                         title="Press CTRL + Enter"
                         className="glow-animation"
                         onClick={() => speak((translationTextareaRef.current as OnlineTranslation).google, toRef.current)}
-                        style={{ display: !translationTextareaRef.current || toRef.current === 'fa' || activeTabRef.current === 'offline' ? 'none' : 'inline-block' }}
+                        style={{ display: loading || !translationTextareaRef.current || toRef.current === 'fa' || activeTabRef.current === 'offline' ? 'none' : 'block' }}
                     >
                     </button>
                 </div>

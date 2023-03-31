@@ -46,14 +46,14 @@ fn main() {
     );
     let mut selected_text_setting = CustomMenuItem::new(
         "selected_text",
-        toggle_menu_item_status(TRANSLATE_SELECTED_TEXT_TITLE, true),
+        toggle_menu_item_status(TRANSLATE_SELECTED_TEXT_TITLE, false),
     );
     let config_result = read_json_file::<IValue>(&find_absolute_path(
         &CACHE_PATH_WITH_IDENTIFIER,
         SETTINGS_FILENAME,
     ));
     let arc_translate_clip = Arc::new(Mutex::new(false));
-    let arc_translate_selected_text = Arc::new(Mutex::new(true));
+    let arc_translate_selected_text = Arc::new(Mutex::new(false));
     let listener_clone_translate_selected_text = Arc::clone(&arc_translate_selected_text);
     if let Ok(conf) = config_result.as_ref() {
         *arc_translate_clip.lock().unwrap() = conf
