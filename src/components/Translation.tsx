@@ -44,6 +44,15 @@ export const Translation = React.forwardRef(({
 
     let clipboardBuffer: string;
 
+    const setTransRefLoadingState = () => {
+        if (!translationTextareaRef.current) translationTextareaRef.current = SEARCHING_TRANS;
+        if (activeTabRef.current === 'offline' && selectedOfflineDictRef.current && !offlineDictsList[selectedOfflineDictRef.current].isBootUp) {
+            offlineDictsList[selectedOfflineDictRef.current].isBootUp = true;
+            translationTextareaRef.current = INIT_DICT_MSG;
+        }
+        setLoading(true);
+    }
+
     const invokeBackend = async (word: string) => {
         try {
             if (activeTabRef.current === 'online') {
@@ -55,10 +64,6 @@ export const Translation = React.forwardRef(({
                 }
             } else {
                 if (!selectedOfflineDictRef.current) return;
-                if (!offlineDictsList[selectedOfflineDictRef.current].isBootUp) {
-                    offlineDictsList[selectedOfflineDictRef.current].isBootUp = true;
-                    translationTextareaRef.current = INIT_DICT_MSG;
-                }
                 translationTextareaRef.current = await invoke<OfflineTranslation>('offline_translate', { word, lang: selectedOfflineDictRef.current });
                 setLoading(false);
             }
@@ -70,8 +75,7 @@ export const Translation = React.forwardRef(({
 
     const search = async (word: string | undefined) => {
         if (!word?.trim()) return inputCleared(translationTextareaRef.current === SEARCHING_TRANS);
-        if (!translationTextareaRef.current) translationTextareaRef.current = SEARCHING_TRANS;
-        setLoading(true);
+        setTransRefLoadingState();
         await invokeBackend(word);
         fieldsetRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -80,20 +84,6 @@ export const Translation = React.forwardRef(({
         if (inputRef.current) inputRef.current.value = '';
         if (clearTransText) translationTextareaRef.current = '';
         setLoading(false);
-    }
-
-    function inputSpeakHandler(this: HTMLInputElement, e: KeyboardEvent) {
-        if (e.code !== 'Enter') return;
-        if (e.ctrlKey) return;
-        if (activeTabRef.current === 'online' && fromRef.current === 'fa') return;
-        if (activeTabRef.current === 'offline' && selectedOfflineDictRef.current === 'fa') return;
-
-        const { value } = this;
-        speak(value, activeTabRef.current === 'online' ? fromRef.current : selectedOfflineDictRef.current || 'auto');
-    }
-
-    function focusInHandler(this: HTMLInputElement) {
-        setTimeout(() => this.select())
     }
 
     const speak = (word = '', lang: CountriesAbbrs | 'auto') => {
@@ -107,83 +97,6 @@ export const Translation = React.forwardRef(({
         timeout.current !== undefined && clearTimeout(timeout.current);
         timeout.current = setTimeout(() => { search(value) }, 700);
     }
-
-    useImperativeHandle<any, TranslationCompOutput>(ref, () => ({
-        translate() {
-            search(inputRef.current?.value);
-        },
-        langSwapped() {
-            const tr = (translationTextareaRef.current as OnlineTranslation).google ?? inputRef.current?.value;
-            if (inputRef.current) inputRef.current.value = tr;
-            search(tr);
-        },
-        translationTextareaRef,
-    }), []);
-
-    useEffect(() => {
-        inputRef.current?.addEventListener('keypress', inputSpeakHandler);
-        inputRef.current?.addEventListener('focusin', focusInHandler);
-
-        const readClipboardAndTrim = (clip: string | null) => {
-            const trimmed = clip?.trim();
-            if (!trimmed) return;
-            if (trimmed === clipboardBuffer) return;
-            if (trimmed.search(/[{}\[\]<>]/) >= 0) return;
-
-            clipboardBuffer = trimmed;
-            return trimmed
-        }
-
-        // run readText once to store/read clipboard content which may exist before opening the app. 
-        readText().then(clip => clipboardBuffer = clip?.trim() ?? '');
-        const appFocus = appWindow.onFocusChanged(async ({ payload: isFocused }) => {
-            appWindow.emit('app_focus', isFocused);
-            if (!isFocused) return;
-            inputRef.current?.select();
-            if (!shouldTranslateClipboardRef.current) return;
-            const clip = await readText()
-            const trimmed = readClipboardAndTrim(clip);
-            if (!trimmed) return;
-            if (inputRef.current) inputRef.current.value = trimmed;
-            setLoading(true);
-            setTimeout(() => search(trimmed), 100);
-        });
-
-        const translateClipboardListener = listen<boolean[]>('tray_settings',
-            ({ payload }) => {
-                shouldTranslateClipboardRef.current = payload[0];
-                _shouldTranslateSelectedTextRef.current = payload[1];
-                emitNewConfig();
-            });
-
-        const translateSelectedTextListener = listen<string>('text_selected', async ({ payload: text }) => {
-            if (!text) return;
-            if (inputRef.current) inputRef.current.value = text;
-            setLoading(true);
-            setTimeout(() => search(text), 100);
-            const pos = await appWindow.outerPosition();
-            await appWindow.setPosition(new PhysicalPosition(pos.x, pos.y - 36));         // neccessary as appWindow.show() forgets the position.
-            await appWindow.isVisible() ? appWindow.unminimize() : appWindow.show();
-        });
-
-        function translationSpeakHandler(e: KeyboardEvent) {
-            if (!translationTextareaRef.current) return;
-            if (toRef.current === 'fa') return;
-            if (e.code !== 'Enter' || !e.ctrlKey) return;
-            if (activeTabRef.current === 'offline') return;
-            speak((translationTextareaRef.current as OnlineTranslation).google, toRef.current);
-        }
-        window.addEventListener('keypress', translationSpeakHandler);
-
-        return () => {
-            inputRef.current?.removeEventListener('keypress', inputSpeakHandler);
-            inputRef.current?.removeEventListener('focusin', focusInHandler);
-            appFocus.then(d => d());
-            translateSelectedTextListener.then(d => d());
-            translateClipboardListener.then(d => d());
-            window.removeEventListener('keypress', translationSpeakHandler);
-        }
-    }, []);
 
     const renderOnlineTranslations = () => {
         if (typeof translationTextareaRef.current === 'string' || !('google' in translationTextareaRef.current)) return;
@@ -308,6 +221,115 @@ export const Translation = React.forwardRef(({
             </div>
         )
     }
+
+    useImperativeHandle<any, TranslationCompOutput>(ref, () => ({
+        translate() {
+            search(inputRef.current?.value);
+        },
+        langSwapped() {
+            const tr = (translationTextareaRef.current as OnlineTranslation).google ?? inputRef.current?.value;
+            if (inputRef.current) inputRef.current.value = tr;
+            search(tr);
+        },
+        translationTextareaRef,
+    }), []);
+
+    useEffect(() => {
+        const consumeClipboard = () => {
+            readText().then(clip => clipboardBuffer = clip?.trim() ?? '');
+        }
+
+        function inputSpeakHandler(this: HTMLInputElement, e: KeyboardEvent) {
+            if (e.code !== 'Enter') return;
+            if (e.ctrlKey) return;
+            if (activeTabRef.current === 'online' && fromRef.current === 'fa') return;
+            if (activeTabRef.current === 'offline' && selectedOfflineDictRef.current === 'fa') return;
+
+            const { value } = this;
+            speak(value, activeTabRef.current === 'online' ? fromRef.current : selectedOfflineDictRef.current || 'auto');
+        }
+
+        function focusInHandler(this: HTMLInputElement) {
+            setTimeout(() => this.select())
+        }
+
+        inputRef.current?.addEventListener('keypress', inputSpeakHandler);
+        inputRef.current?.addEventListener('focusin', focusInHandler);
+
+        const trimTextbuffer = (clip: string | null) => {
+            const trimmed = clip?.trim();
+            if (!trimmed) return;
+            if (trimmed === clipboardBuffer) return;
+            if (trimmed.search(/[{}\[\]<>]/) >= 0) return;
+
+            return trimmed
+        }
+
+        const dropTextHandler = (e: DragEvent) => {
+            const trimmed = trimTextbuffer(e.dataTransfer?.getData('text') ?? '');
+            if (!trimmed) return;
+            if (inputRef.current) inputRef.current.value = trimmed;
+            consumeClipboard();
+            setTransRefLoadingState();
+            setTimeout(() => search(trimmed), 100);
+        }
+
+        function translationSpeakHandler(e: KeyboardEvent) {
+            if (!translationTextareaRef.current) return;
+            if (toRef.current === 'fa') return;
+            if (e.code !== 'Enter' || !e.ctrlKey) return;
+            if (activeTabRef.current === 'offline') return;
+            speak((translationTextareaRef.current as OnlineTranslation).google, toRef.current);
+        }
+
+        window.addEventListener('drop', dropTextHandler);
+        window.addEventListener('keypress', translationSpeakHandler);
+
+        // run readText once to store/read clipboard content which may exist before opening the app. 
+        consumeClipboard();
+
+        const appFocus = appWindow.onFocusChanged(async ({ payload: isFocused }) => {
+            appWindow.emit('app_focus', isFocused);
+            if (!isFocused) return;
+            inputRef.current?.select();
+            if (!shouldTranslateClipboardRef.current) return;
+            const clip = await readText()
+            const trimmed = trimTextbuffer(clip);
+            if (!trimmed) return;
+            clipboardBuffer = trimmed;
+            if (inputRef.current) inputRef.current.value = trimmed;
+            setTransRefLoadingState();
+            setTimeout(() => search(trimmed), 100);
+        });
+
+        const translateClipboardListener = listen<boolean[]>('tray_settings',
+            ({ payload }) => {
+                shouldTranslateClipboardRef.current = payload[0];
+                _shouldTranslateSelectedTextRef.current = payload[1];
+                emitNewConfig();
+            });
+
+        const translateSelectedTextListener = listen<string>('text_selected', async ({ payload: text }) => {
+            if (!text) return;
+            if (inputRef.current) inputRef.current.value = text;
+            consumeClipboard();
+            setTransRefLoadingState();
+            setTimeout(() => search(text), 100);
+            const pos = await appWindow.outerPosition();
+            await appWindow.setPosition(new PhysicalPosition(pos.x, pos.y - 36));         // neccessary as appWindow.show() forgets the position.
+            await appWindow.isVisible() ? appWindow.unminimize() : appWindow.show();
+        });
+
+        return () => {
+            inputRef.current?.removeEventListener('keypress', inputSpeakHandler);
+            inputRef.current?.removeEventListener('focusin', focusInHandler);
+            window.removeEventListener('keypress', translationSpeakHandler);
+            window.removeEventListener('drop', dropTextHandler);
+            appFocus.then(d => d());
+            translateSelectedTextListener.then(d => d());
+            translateClipboardListener.then(d => d());
+        }
+    }, []);
 
     const offlineTranslations = useMemo(() => renderOfflineTranslations(), [translationTextareaRef.current]);
     const onlineTranslations = useMemo(() => renderOnlineTranslations(), [translationTextareaRef.current]);

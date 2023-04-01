@@ -41,7 +41,7 @@ function App() {
     }
   );
   const shouldTranslateClipboardRef = useRef(false);
-  const _shouldTranslateSelectedTextRef = useRef(true);
+  const _shouldTranslateSelectedTextRef = useRef(false);
   const tranlationCompRef = createRef<TranslationCompOutput>();
 
   let selectedTheme: Theme = "default";
@@ -145,7 +145,7 @@ function App() {
   }
 
   return (
-    <div className={styles.App}>
+    <div className={styles.App} onDragOver={(e) => e.preventDefault()}>
       {isOpen && <Modal
         setIsOpen={setIsOpen}
         downloadedDicts={downloadedDicts}

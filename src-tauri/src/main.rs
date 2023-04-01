@@ -6,14 +6,12 @@
 #[macro_use]
 extern crate lazy_static;
 
-mod online_translate;
-use online_translate::{OnlineTranslator, OnlineTranslation};
-// mod google_translate;
 mod helper;
-// mod other_online_translate;
-// use google_translate::Translator;
+mod online_translate;
+
 use helper::*;
 use ijson::IValue;
+use online_translate::{OnlineTranslation, OnlineTranslator};
 use rdev::{
     EventType::{ButtonRelease, KeyRelease, MouseMove, Wheel},
     Key::{Backspace, ControlLeft, ControlRight, Escape, ShiftLeft, ShiftRight},
@@ -30,31 +28,61 @@ use tauri::{
 use tts_rust::languages::Languages::*;
 use tts_rust::tts::GTTSClient;
 
-const TRANSLATE_CLIPBOARD_TITLE: &'static str = "Translate Clipboard";
-const TRANSLATE_SELECTED_TEXT_TITLE: &'static str = "Translate Selected Text (Only X11)";
+const TRANSLATE_CLIPBOARD_TITLE: &'static str = "Clipboard";
+const TRANSLATE_SELECTED_TEXT_TITLE: &'static str = "Selected Text (Only X11)";
+const DEFAULT_THEME_TITLE: &'static str = "Default";
+const DEFAULT_THEME_ID: &'static str = "default";
+const DARK_THEME_TITLE: &'static str = "Pitch Black";
+const DARK_THEME_ID: &'static str = "dark";
+const LIGHT_THEME_TITLE: &'static str = "Sunset";
+const LIGHT_THEME_ID: &'static str = "light";
 
 fn toggle_menu_item_status(title: &str, status: bool) -> String {
     format!("{} {}", if status { "\u{25cf}" } else { "\u{25cb}" }, title)
 }
 
 fn main() {
+    let arc_translate_clip = Arc::new(Mutex::new(false));
+    let arc_translate_selected_text = Arc::new(Mutex::new(false));
+    let listener_clone_translate_selected_text = Arc::clone(&arc_translate_selected_text);
+
     let quit = CustomMenuItem::new("quit", "Quit");
     let show_hide = CustomMenuItem::new("show_hide", "Hide");
+    let dragdrop = CustomMenuItem::new("dragdrop", "Drag n Drop")
+        .selected()
+        .disabled();
     let mut clipboard = CustomMenuItem::new(
         "clipboard",
-        toggle_menu_item_status(TRANSLATE_CLIPBOARD_TITLE, false),
+        toggle_menu_item_status(
+            TRANSLATE_CLIPBOARD_TITLE,
+            *arc_translate_clip.lock().unwrap(),
+        ),
     );
     let mut selected_text_setting = CustomMenuItem::new(
         "selected_text",
-        toggle_menu_item_status(TRANSLATE_SELECTED_TEXT_TITLE, false),
+        toggle_menu_item_status(
+            TRANSLATE_SELECTED_TEXT_TITLE,
+            *arc_translate_selected_text.lock().unwrap(),
+        ),
     );
     let config_result = read_json_file::<IValue>(&find_absolute_path(
         &CACHE_PATH_WITH_IDENTIFIER,
         SETTINGS_FILENAME,
     ));
-    let arc_translate_clip = Arc::new(Mutex::new(false));
-    let arc_translate_selected_text = Arc::new(Mutex::new(false));
-    let listener_clone_translate_selected_text = Arc::clone(&arc_translate_selected_text);
+
+    let mut default_theme = CustomMenuItem::new(
+        DEFAULT_THEME_ID,
+        toggle_menu_item_status(DEFAULT_THEME_TITLE, true),
+    );
+    let mut dark_theme = CustomMenuItem::new(
+        DARK_THEME_ID,
+        toggle_menu_item_status(DARK_THEME_TITLE, false),
+    );
+    let mut light_theme = CustomMenuItem::new(
+        LIGHT_THEME_ID,
+        toggle_menu_item_status(LIGHT_THEME_TITLE, false),
+    );
+
     if let Ok(conf) = config_result.as_ref() {
         *arc_translate_clip.lock().unwrap() = conf
             .get("shouldTranslateClipboard")
@@ -63,7 +91,7 @@ fn main() {
             .unwrap();
         *arc_translate_selected_text.lock().unwrap() = conf
             .get("shouldTranslateSelectedText")
-            .unwrap_or(&IValue::TRUE)
+            .unwrap_or(&IValue::FALSE)
             .to_bool()
             .unwrap();
         clipboard.title = toggle_menu_item_status(
@@ -74,20 +102,30 @@ fn main() {
             TRANSLATE_SELECTED_TEXT_TITLE,
             *arc_translate_selected_text.lock().unwrap(),
         );
+
+        let def = ijson::ijson!(DEFAULT_THEME_ID);
+        let theme_name = conf.get("theme").unwrap_or(&def).as_string().unwrap();
+        default_theme.title = toggle_menu_item_status(
+            DEFAULT_THEME_TITLE,
+            theme_name.as_str() == default_theme.id_str,
+        );
+        dark_theme.title =
+            toggle_menu_item_status(DARK_THEME_TITLE, theme_name.as_str() == dark_theme.id_str);
+        light_theme.title =
+            toggle_menu_item_status(LIGHT_THEME_TITLE, theme_name.as_str() == light_theme.id_str);
     }
     let setting_items = SystemTrayMenu::new()
+        .add_item(dragdrop)
         .add_item(clipboard)
         .add_item(selected_text_setting);
-    let setting_menu = SystemTraySubmenu::new("Settings", setting_items);
+    let setting_menu = SystemTraySubmenu::new("Translate Modes", setting_items);
 
-    let default_theme = CustomMenuItem::new("default", "Default");
-    let dark_theme = CustomMenuItem::new("dark", "Pitch Black");
-    let light_theme = CustomMenuItem::new("light", "Sunset");
     let theme_items = SystemTrayMenu::new()
         .add_item(default_theme)
         .add_item(dark_theme)
         .add_item(light_theme);
     let theme_menu = SystemTraySubmenu::new("Themes", theme_items);
+
     let tray_menu = SystemTrayMenu::new()
         .add_item(quit)
         .add_native_item(SystemTrayMenuItem::Separator)
@@ -162,7 +200,31 @@ fn main() {
                         }
                     }
                     "default" | "dark" | "light" => {
-                        window.emit("theme_changed", id).unwrap();
+                        window.emit("theme_changed", &id).unwrap();
+                        if let Err(err) = app
+                            .tray_handle()
+                            .get_item(DEFAULT_THEME_ID)
+                            .set_title(toggle_menu_item_status(
+                                DEFAULT_THEME_TITLE,
+                                id == DEFAULT_THEME_ID,
+                            ))
+                            .and(
+                                app.tray_handle()
+                                    .get_item(DARK_THEME_ID)
+                                    .set_title(toggle_menu_item_status(
+                                        DARK_THEME_TITLE,
+                                        id == DARK_THEME_ID,
+                                    ))
+                                    .and(app.tray_handle().get_item(LIGHT_THEME_ID).set_title(
+                                        toggle_menu_item_status(
+                                            LIGHT_THEME_TITLE,
+                                            id == LIGHT_THEME_ID,
+                                        ),
+                                    )),
+                            )
+                        {
+                            eprintln!("tray_settings theme error: {err}");
+                        }
                     }
                     _ => {}
                 }
@@ -290,12 +352,7 @@ fn main() {
                                 let xsel = String::from_utf8(xsel.stdout)
                                     .or(Err("something went wrong in xsel"));
                                 if let Ok(output) = xsel {
-                                    let clip = tauri::ClipboardManager::read_text(
-                                        &app_handle.clipboard_manager(),
-                                    )
-                                    .unwrap_or(Some(String::new()))
-                                    .unwrap_or("".to_string());
-                                    if output.trim() == "" || output == clip {
+                                    if output.trim() == "" {
                                         return;
                                     }
                                     let output = output.trim().to_owned();
