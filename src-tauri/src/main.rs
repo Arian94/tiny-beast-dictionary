@@ -13,8 +13,8 @@ use helper::*;
 use ijson::IValue;
 use online_translate::{OnlineTranslation, OnlineTranslator};
 use rdev::{
-    EventType::{ButtonRelease, KeyRelease, MouseMove, Wheel},
-    Key::{Backspace, ControlLeft, ControlRight, Escape, ShiftLeft, ShiftRight},
+    EventType::{ButtonRelease, KeyPress, KeyRelease, MouseMove, Wheel},
+    Key::{Backspace, ControlLeft, ControlRight, Escape, KeyC, ShiftLeft, ShiftRight},
 };
 use std::{
     fs,
@@ -29,7 +29,7 @@ use tts_rust::languages::Languages::*;
 use tts_rust::tts::GTTSClient;
 
 const TRANSLATE_CLIPBOARD_TITLE: &'static str = "Clipboard";
-const TRANSLATE_SELECTED_TEXT_TITLE: &'static str = "Selected Text (Only X11)";
+const TRANSLATE_SELECTED_TEXT_TITLE: &'static str = "Selected Text";
 const DEFAULT_THEME_TITLE: &'static str = "Default";
 const DEFAULT_THEME_ID: &'static str = "default";
 const DARK_THEME_TITLE: &'static str = "Pitch Black";
@@ -42,9 +42,10 @@ fn toggle_menu_item_status(title: &str, status: bool) -> String {
 }
 
 fn main() {
-    let arc_translate_clip = Arc::new(Mutex::new(false));
+    let arc_translate_clipboard = Arc::new(Mutex::new(false));
     let arc_translate_selected_text = Arc::new(Mutex::new(false));
     let listener_clone_translate_selected_text = Arc::clone(&arc_translate_selected_text);
+    let listener_clone_translate_clipboard = Arc::clone(&arc_translate_clipboard);
 
     let quit = CustomMenuItem::new("quit", "Quit");
     let show_hide = CustomMenuItem::new("show_hide", "Hide");
@@ -55,7 +56,7 @@ fn main() {
         "clipboard",
         toggle_menu_item_status(
             TRANSLATE_CLIPBOARD_TITLE,
-            *arc_translate_clip.lock().unwrap(),
+            *arc_translate_clipboard.lock().unwrap(),
         ),
     );
     let mut selected_text_setting = CustomMenuItem::new(
@@ -84,7 +85,7 @@ fn main() {
     );
 
     if let Ok(conf) = config_result.as_ref() {
-        *arc_translate_clip.lock().unwrap() = conf
+        *arc_translate_clipboard.lock().unwrap() = conf
             .get("shouldTranslateClipboard")
             .unwrap_or(&IValue::FALSE)
             .to_bool()
@@ -96,7 +97,7 @@ fn main() {
             .unwrap();
         clipboard.title = toggle_menu_item_status(
             TRANSLATE_CLIPBOARD_TITLE,
-            *arc_translate_clip.lock().unwrap(),
+            *arc_translate_clipboard.lock().unwrap(),
         );
         selected_text_setting.title = toggle_menu_item_status(
             TRANSLATE_SELECTED_TEXT_TITLE,
@@ -139,6 +140,7 @@ fn main() {
             .expect("failed to get shell output")
     }
 
+    std::env::set_var("GDK_BACKEND", "x11");
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             offline_translate,
@@ -178,8 +180,8 @@ fn main() {
                         }
                     }
                     "clipboard" => {
-                        let tc = !*arc_translate_clip.lock().unwrap();
-                        *arc_translate_clip.lock().unwrap() = tc;
+                        let tc = !*arc_translate_clipboard.lock().unwrap();
+                        *arc_translate_clipboard.lock().unwrap() = tc;
                         let title = toggle_menu_item_status(TRANSLATE_CLIPBOARD_TITLE, tc);
                         if let Err(err) = item_handle.set_title(title).and(window.emit(
                             "tray_settings",
@@ -193,9 +195,10 @@ fn main() {
                         *arc_translate_selected_text.lock().unwrap() = ts;
                         let title = toggle_menu_item_status(TRANSLATE_SELECTED_TEXT_TITLE, ts);
                         consume_selected_text();
-                        if let Err(err) = item_handle.set_title(title).and(
-                            window.emit("tray_settings", (*arc_translate_clip.lock().unwrap(), ts)),
-                        ) {
+                        if let Err(err) = item_handle.set_title(title).and(window.emit(
+                            "tray_settings",
+                            (*arc_translate_clipboard.lock().unwrap(), ts),
+                        )) {
                             eprintln!("tray_settings selected_text error: {err}");
                         }
                     }
@@ -277,11 +280,11 @@ fn main() {
                 Err(err) => eprintln!("config result error: {err}"),
             };
 
-            let is_input_focused = Arc::new(AtomicBool::new(true));
-            let clone_is_input_focused = Arc::clone(&is_input_focused);
+            let is_app_focused = Arc::new(AtomicBool::new(true)); // to ignore translation when appWindow is focused.
+            let clone_is_app_focused = Arc::clone(&is_app_focused);
             window.listen("app_focus", move |ev| {
                 let is_focused = ev.payload().unwrap();
-                is_input_focused.store(
+                is_app_focused.store(
                     if is_focused == "true" { true } else { false },
                     std::sync::atomic::Ordering::Relaxed,
                 );
@@ -337,22 +340,33 @@ fn main() {
                     });
 
                     let mut mouse_position = PhysicalPosition { x: 0.0, y: 0.0 };
+                    let mut is_ctrl_pressed = false;
+                    let mut is_keyc_pressed = false;
                     if let Err(err) = rdev::listen(move |ev| {
                         if let MouseMove { x, y } = ev.event_type {
                             mouse_position = PhysicalPosition { x, y };
                         }
-                        if !*listener_clone_translate_selected_text.lock().unwrap()
-                            || clone_is_input_focused.load(std::sync::atomic::Ordering::Relaxed)
+                        if (!*listener_clone_translate_selected_text.lock().unwrap()
+                            && !*listener_clone_translate_clipboard.lock().unwrap())
+                            || clone_is_app_focused.load(std::sync::atomic::Ordering::Relaxed)
                         {
                             return;
                         }
                         match ev.event_type {
                             ButtonRelease(rdev::Button::Left) => {
+                                if !*listener_clone_translate_selected_text.lock().unwrap() {
+                                    return;
+                                }
                                 let xsel = consume_selected_text();
                                 let xsel = String::from_utf8(xsel.stdout)
                                     .or(Err("something went wrong in xsel"));
                                 if let Ok(output) = xsel {
-                                    if output.trim() == "" {
+                                    let clip = tauri::ClipboardManager::read_text(
+                                        &app_handle.clipboard_manager(),
+                                    )
+                                    .unwrap_or(Some(String::new()))
+                                    .unwrap_or("".to_string());
+                                    if output.trim() == "" || output == clip {
                                         return;
                                     }
                                     let output = output.trim().to_owned();
@@ -366,15 +380,30 @@ fn main() {
                                         .unwrap();
                                 }
                             }
-                            KeyRelease(ShiftLeft)
-                            | KeyRelease(ShiftRight)
-                            | KeyRelease(ControlLeft)
-                            | KeyRelease(ControlRight) => {
+                            KeyRelease(ShiftLeft) | KeyRelease(ShiftRight) => {
                                 consume_selected_text(); // consume text selected using shift keys as it's better to ignore such selections.
                                 ()
                             }
                             KeyRelease(Escape) | KeyRelease(Backspace) | Wheel { .. } => {
                                 builder.hide().unwrap();
+                            }
+                            KeyPress(ControlLeft) | KeyPress(ControlRight) => {
+                                is_ctrl_pressed = true;
+                            }
+                            KeyRelease(ControlLeft) | KeyRelease(ControlRight) => {
+                                is_ctrl_pressed = false;
+                                if is_keyc_pressed {
+                                    window.emit("text_copied", ()).unwrap();
+                                }
+                            }
+                            KeyPress(KeyC) => {
+                                is_keyc_pressed = true;
+                            }
+                            KeyRelease(KeyC) => {
+                                is_keyc_pressed = false;
+                                if is_ctrl_pressed {
+                                    window.emit("text_copied", ()).unwrap();
+                                }
                             }
                             _ => {}
                         }

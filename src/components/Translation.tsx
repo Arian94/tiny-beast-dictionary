@@ -239,6 +239,23 @@ export const Translation = React.forwardRef(({
             readText().then(clip => clipboardBuffer = clip?.trim() ?? '');
         }
 
+        const translateClip = async () => {
+            if (!shouldTranslateClipboardRef.current) return 0;
+            const clip = await readText()
+            const trimmed = trimTextbuffer(clip);
+            if (!trimmed) return;
+            clipboardBuffer = trimmed;
+            if (inputRef.current) inputRef.current.value = trimmed;
+            setTransRefLoadingState();
+            setTimeout(() => search(trimmed), 100);
+        }
+
+        const displayWindow = async () => {
+            const pos = await appWindow.outerPosition();
+            await appWindow.setPosition(new PhysicalPosition(pos.x, pos.y - 36));         // neccessary as appWindow.show() forgets the position.
+            await appWindow.isVisible() ? appWindow.unminimize() : appWindow.show();
+        }
+
         function inputSpeakHandler(this: HTMLInputElement, e: KeyboardEvent) {
             if (e.code !== 'Enter') return;
             if (e.ctrlKey) return;
@@ -292,32 +309,28 @@ export const Translation = React.forwardRef(({
             appWindow.emit('app_focus', isFocused);
             if (!isFocused) return;
             inputRef.current?.select();
-            if (!shouldTranslateClipboardRef.current) return;
-            const clip = await readText()
-            const trimmed = trimTextbuffer(clip);
-            if (!trimmed) return;
-            clipboardBuffer = trimmed;
-            if (inputRef.current) inputRef.current.value = trimmed;
-            setTransRefLoadingState();
-            setTimeout(() => search(trimmed), 100);
+            translateClip();
         });
 
-        const translateClipboardListener = listen<boolean[]>('tray_settings',
-            ({ payload }) => {
-                shouldTranslateClipboardRef.current = payload[0];
-                _shouldTranslateSelectedTextRef.current = payload[1];
-                emitNewConfig();
-            });
+        const trayListener = listen<boolean[]>('tray_settings', ({ payload }) => {
+            shouldTranslateClipboardRef.current = payload[0];
+            _shouldTranslateSelectedTextRef.current = payload[1];
+            emitNewConfig();
+        });
 
         const translateSelectedTextListener = listen<string>('text_selected', async ({ payload: text }) => {
+            if (!_shouldTranslateSelectedTextRef.current) return;
             if (!text) return;
             if (inputRef.current) inputRef.current.value = text;
             consumeClipboard();
             setTransRefLoadingState();
             setTimeout(() => search(text), 100);
-            const pos = await appWindow.outerPosition();
-            await appWindow.setPosition(new PhysicalPosition(pos.x, pos.y - 36));         // neccessary as appWindow.show() forgets the position.
-            await appWindow.isVisible() ? appWindow.unminimize() : appWindow.show();
+            displayWindow();
+        });
+
+        const translateClipboardListener = listen<void>('text_copied', async () => {
+            const res = await translateClip();
+            res ?? displayWindow();
         });
 
         return () => {
@@ -326,8 +339,9 @@ export const Translation = React.forwardRef(({
             window.removeEventListener('keypress', translationSpeakHandler);
             window.removeEventListener('drop', dropTextHandler);
             appFocus.then(d => d());
-            translateSelectedTextListener.then(d => d());
             translateClipboardListener.then(d => d());
+            translateSelectedTextListener.then(d => d());
+            trayListener.then(d => d());
         }
     }, []);
 
