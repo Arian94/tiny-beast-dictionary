@@ -36,7 +36,7 @@ function App() {
       it: { percentage: NOT_DOWNLOADED, zipped: '32 MB', extracted: '424 MB', name: "Italian", isBootUp: false },
       fa: { percentage: NOT_DOWNLOADED, zipped: '3 MB', extracted: '54 MB', name: "Persian", isBootUp: false },
       pt: { percentage: NOT_DOWNLOADED, zipped: '20 MB', extracted: '279 MB', name: "Portuguese", isBootUp: false },
-      "zh-CN": { percentage: NOT_DOWNLOADED, zipped: '47 MB', extracted: '619 MB', name: "Chinese", isBootUp: false },
+      "zh-CN": { percentage: NOT_DOWNLOADED, zipped: '47 MB', extracted: '619 MB', name: "Chinese (Simplified)", isBootUp: false },
       ar: { percentage: NOT_DOWNLOADED, zipped: '20 MB', extracted: '429 MB', name: "Arabic", isBootUp: false },
     }
   );

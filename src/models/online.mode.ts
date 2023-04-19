@@ -1,5 +1,6 @@
 export type OnlineTranslation = {
   google: string;
+  cambridge: string;
   sentencedict: string;
   mymemory: MyMemoryTranslation
 }

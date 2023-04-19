@@ -74,15 +74,16 @@ export const Translation = React.forwardRef(({
     }
 
     const search = async (word: string | undefined) => {
-        if (!word?.trim()) return inputCleared(translationTextareaRef.current === SEARCHING_TRANS);
+        if (!word?.trim()) return clearInput(translationTextareaRef.current === SEARCHING_TRANS);
         setTransRefLoadingState();
         await invokeBackend(word);
         fieldsetRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const inputCleared = (clearTransText: boolean) => {
+    const clearInput = (clearTransText: boolean) => {
         if (inputRef.current) inputRef.current.value = '';
         if (clearTransText) translationTextareaRef.current = '';
+        inputRef.current?.focus();
         setLoading(false);
     }
 
@@ -101,60 +102,60 @@ export const Translation = React.forwardRef(({
     const renderOnlineTranslations = () => {
         if (typeof translationTextareaRef.current === 'string' || !('google' in translationTextareaRef.current)) return;
 
-        const { google, sentencedict, mymemory } = translationTextareaRef.current;
+        const { google, cambridge, sentencedict, mymemory } = translationTextareaRef.current;
 
-        const mymemoryTrans = mymemory.map(({ accuracy, segment: word, translation }) =>
+        const mymemoryTrans = <><h3 style={{ color: "mediumvioletred" }}>AI:</h3>{mymemory.map(({ accuracy, segment: word, translation }) =>
             <div className={styles.definitions} style={{ marginBlock: ".5rem", backgroundColor: "rgb(var(--primary), .2)" }} key={word + translation}>
                 <div><span style={{ color: "rgb(var(--sky))" }}>Word:</span> {word}</div>
                 <div><span style={{ color: "rgb(var(--sky))" }}>Translation:</span> {translation}</div>
                 <small><span style={{ color: "rgb(var(--sky))" }}>Accuracy:</span> {(accuracy * 100).toFixed()}%</small>
             </div>
-        )
+        )}</>;
 
-        if (sentencedict === 'not found') {
-            return <div className={styles.onlineMode}>
-                <h3 style={{ color: "mediumvioletred" }}>Google:</h3>
-                <div className={styles.google}
-                    style={{
-                        direction: activeTabRef.current === 'online' && (toRef.current === 'fa' || toRef.current === 'ar') ? 'rtl' : 'ltr',
-                    }}
-                >
-                    {google}
-                </div>
-                {!!mymemory.length && <><h3 style={{ color: "mediumvioletred" }}>Other Source:</h3>
-                    <div>
-                        {mymemoryTrans}
-                    </div>
-                </>
-                }
-            </div>
+        const cambridgeParser = () => {
+            if (!cambridge) return;
+
+            const dom = new DOMParser().parseFromString(cambridge, "text/html");
+            const body = dom.getElementsByTagName('body')[0].innerHTML;
+
+            return body;
         }
 
-        const dom = new DOMParser().parseFromString(sentencedict, "text/html");
-        const body = dom.getElementsByTagName('body')[0];
-        const imageId = dom.getElementById("imageId");
-        const script = dom.getElementsByTagName("script")[0];
+        const cambridgeTrans = cambridgeParser();
 
-        imageId && body.removeChild(imageId);
-        script && body.removeChild(script);
-        const definition = body.firstChild;
-        definition && body.removeChild(definition);
-        let defStr = definition?.textContent;
-        defStr = defStr?.replace("Antonym:", "<strong>Antonym:</strong>");
-        defStr = defStr?.replace("Synonym:", "<strong>Synonym:</strong>");
-        defStr = defStr?.replace("Similar words:", "<strong>Similar words:</strong>");
-        defStr = defStr?.replace("Meaning:", "<strong>Meaning:</strong>");
+        const sentencedictParser = (): { defStr: string; examples: string; } | undefined => {
+            if (!sentencedict) return;
+            const dom = new DOMParser().parseFromString(sentencedict, "text/html");
+            const body = dom.getElementsByTagName('body')[0];
+            const imageId = dom.getElementById("imageId");
+            const script = dom.getElementsByTagName("script")[0];
 
-        const ad = dom.getElementById("ad_marginbottom_0");
-        ad && body.querySelector("#all")?.removeChild(ad);
+            imageId && body.removeChild(imageId);
+            script && body.removeChild(script);
+            const definition = body.firstChild;
+            definition && body.removeChild(definition);
+            let defStr = definition?.textContent;
+            defStr = defStr?.replace("Antonym:", "<strong>Antonym:</strong>");
+            defStr = defStr?.replace("Synonym:", "<strong>Synonym:</strong>");
+            defStr = defStr?.replace("Similar words:", "<strong>Similar words:</strong>");
+            defStr = defStr?.replace("Meaning:", "<strong>Meaning:</strong>");
 
-        const divs = body.querySelector("#all")?.getElementsByTagName('div');
-        body.querySelector("#all")?.childNodes.forEach((c, i) => {
-            const anchor = divs?.[i]?.getElementsByTagName('a')?.[0];
-            anchor && divs?.[i].removeChild(anchor);
-        });
+            const ad = dom.getElementById("ad_marginbottom_0");
+            ad && body.querySelector("#all")?.removeChild(ad);
 
-        const examples = body.getElementsByTagName('div')[0].innerHTML;
+            const divs = body.querySelector("#all")?.getElementsByTagName('div');
+            body.querySelector("#all")?.childNodes.forEach((c, i) => {
+                const anchor = divs?.[i]?.getElementsByTagName('a')?.[0];
+                anchor && divs?.[i].removeChild(anchor);
+            });
+
+            const examples = body.getElementsByTagName('div')[0].innerHTML;
+
+            return { defStr: defStr ?? "", examples }
+        }
+
+        const sentencedictTrans = sentencedictParser();
+
 
         return (
             <div className={styles.onlineMode}>
@@ -166,13 +167,19 @@ export const Translation = React.forwardRef(({
                 >
                     {google}
                 </div>
-                <h3>Other Sources:</h3>
-                {mymemoryTrans}
-                <hr />
-                <h4 style={{ color: "rgb(var(--warning), .8)", fontStyle: "italic", fontSize: ".9rem" }}>Gathered from Websites:</h4>
-                <div className={styles.definitions} dangerouslySetInnerHTML={{ __html: defStr ?? "" }}></div>
-                <h4>Examples:</h4>
-                <div className={styles.examples} dangerouslySetInnerHTML={{ __html: examples }}></div>
+
+                {!!cambridgeTrans && <><h3>Cambridge:</h3>
+                    <div className={styles.definitions} dangerouslySetInnerHTML={{ __html: cambridgeTrans }}></div>
+                    <hr />
+                </>}
+
+                {!!mymemory.length && <>{mymemoryTrans}<hr /></>}
+
+                {!!sentencedictTrans && <><h4 style={{ color: "rgb(var(--warning), .8)", fontStyle: "italic", fontSize: ".9rem" }}>Gathered from Websites:</h4>
+                    <div className={styles.definitions} dangerouslySetInnerHTML={{ __html: sentencedictTrans.defStr }}></div>
+                    <h4>Examples:</h4>
+                    <div className={styles.examples} dangerouslySetInnerHTML={{ __html: sentencedictTrans.examples }}></div>
+                </>}
             </div>
         )
     }
@@ -228,8 +235,9 @@ export const Translation = React.forwardRef(({
         },
         langSwapped() {
             const tr = (translationTextareaRef.current as OnlineTranslation).google ?? inputRef.current?.value;
-            if (inputRef.current) inputRef.current.value = tr;
-            search(tr);
+            if (!inputRef.current) return;
+            if (!loading) inputRef.current.value = tr;
+            search(inputRef.current.value);
         },
         translationTextareaRef,
     }), []);
@@ -243,7 +251,7 @@ export const Translation = React.forwardRef(({
             if (!shouldTranslateClipboardRef.current) return 0;
             const clip = await readText()
             const trimmed = trimTextbuffer(clip);
-            if (!trimmed) return;
+            if (!trimmed) return 0;
             clipboardBuffer = trimmed;
             if (inputRef.current) inputRef.current.value = trimmed;
             setTransRefLoadingState();
@@ -277,7 +285,7 @@ export const Translation = React.forwardRef(({
             const trimmed = clip?.trim();
             if (!trimmed) return;
             if (trimmed === clipboardBuffer) return;
-            if (trimmed.search(/[{}\[\]<>]/) >= 0) return;
+            if (trimmed.search(/[{}=<>]/) >= 0) return;
 
             return trimmed
         }
@@ -299,14 +307,20 @@ export const Translation = React.forwardRef(({
             speak((translationTextareaRef.current as OnlineTranslation).google, toRef.current);
         }
 
+        function focusOnInputHandler(e: KeyboardEvent) {
+            if (e.key !== 'l' || !e.ctrlKey) return;
+            inputRef.current?.focus();
+        }
+
         window.addEventListener('drop', dropTextHandler);
         window.addEventListener('keypress', translationSpeakHandler);
+        window.addEventListener('keypress', focusOnInputHandler);
 
         // run readText once to store/read clipboard content which may exist before opening the app. 
         consumeClipboard();
 
         const appFocus = appWindow.onFocusChanged(async ({ payload: isFocused }) => {
-            appWindow.emit('app_focus', isFocused);
+            appWindow.emit('app_focused', isFocused);
             if (!isFocused) return;
             inputRef.current?.select();
             translateClip();
@@ -335,6 +349,7 @@ export const Translation = React.forwardRef(({
 
         return () => {
             inputRef.current?.removeEventListener('keypress', inputSpeakHandler);
+            inputRef.current?.removeEventListener('keypress', focusOnInputHandler);
             inputRef.current?.removeEventListener('focusin', focusInHandler);
             window.removeEventListener('keypress', translationSpeakHandler);
             window.removeEventListener('drop', dropTextHandler);
@@ -361,7 +376,7 @@ export const Translation = React.forwardRef(({
         <>
             <div className={styles.input}>
                 <input ref={inputRef} autoFocus maxLength={256} disabled={translationTextareaRef.current === INIT_DICT_MSG}
-                    placeholder={isFa ? 'جستجو...' : 'search...'}
+                    placeholder={isFa ? 'جستجو...' : 'search...(press CTRL + l to focus)'}
                     onInput={onInputVal}
                     style={{
                         direction: isLatin ? 'ltr' : 'rtl',
@@ -387,7 +402,7 @@ export const Translation = React.forwardRef(({
                         right: isLatin ? '2px' : 'unset'
                     }}>
                     <button className="glow-animation" onClick={() => search(inputRef.current?.value)}></button>
-                    <button className="glow-animation" disabled={loading && activeTabRef.current === 'offline'} onClick={() => inputCleared(translationTextareaRef.current === SEARCHING_TRANS)}></button>
+                    <button className="glow-animation" disabled={loading && activeTabRef.current === 'offline'} onClick={() => clearInput(translationTextareaRef.current === SEARCHING_TRANS)}></button>
                 </div>
             </div>
             <fieldset className={styles.translation}

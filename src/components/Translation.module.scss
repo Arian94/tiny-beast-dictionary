@@ -58,7 +58,7 @@ $transHeight: calc(100vh - 122px);
   position: relative;
   display: flex;
   font-family: 'Noto Naskh';
-  word-break: break-all;
+  word-break: break-word;
   line-height: 20px;
   min-height: $transHeight;
   justify-content: space-between;
@@ -89,7 +89,7 @@ $transHeight: calc(100vh - 122px);
       bottom: 3px;
       margin-inline-end: .5rem;
       background: url(../assets/speaker.svg) no-repeat center;
-      background-color: rgba(var(--secondary), .5);
+      background-color: rgba(var(--primary), .7);
       background-size: 20px;
 
       &:active {
@@ -108,17 +108,24 @@ $transHeight: calc(100vh - 122px);
   .offlineMode {
     width: 100%;
 
+    h2,
     h3 {
       margin-block: .2rem;
     }
 
-    h4 {
+    h4,
+    h5 {
       margin-block: .25rem;
       color: rgb(var(--accent));
     }
 
     .definitions {
       padding: .5rem;
+
+      a {
+        color: unset;
+        text-decoration-line: unset;
+      }
     }
   }
 

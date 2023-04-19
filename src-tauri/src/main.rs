@@ -18,7 +18,10 @@ use rdev::{
 };
 use std::{
     fs,
-    sync::{atomic::AtomicBool, Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     thread,
 };
 use tauri::{
@@ -139,6 +142,9 @@ fn main() {
             .output()
             .expect("failed to get shell output")
     }
+    let is_app_focused = Arc::new(AtomicBool::new(true)); // to ignore translation when appWindow is focused.
+    let tray_is_app_focused = Arc::clone(&is_app_focused);
+    let clone_is_app_focused = Arc::clone(&is_app_focused);
 
     std::env::set_var("GDK_BACKEND", "x11");
     tauri::Builder::default()
@@ -194,7 +200,9 @@ fn main() {
                         let ts = !*arc_translate_selected_text.lock().unwrap();
                         *arc_translate_selected_text.lock().unwrap() = ts;
                         let title = toggle_menu_item_status(TRANSLATE_SELECTED_TEXT_TITLE, ts);
-                        consume_selected_text();
+                        if !tray_is_app_focused.load(Ordering::Relaxed) {
+                            consume_selected_text();
+                        }
                         if let Err(err) = item_handle.set_title(title).and(window.emit(
                             "tray_settings",
                             (*arc_translate_clipboard.lock().unwrap(), ts),
@@ -280,9 +288,7 @@ fn main() {
                 Err(err) => eprintln!("config result error: {err}"),
             };
 
-            let is_app_focused = Arc::new(AtomicBool::new(true)); // to ignore translation when appWindow is focused.
-            let clone_is_app_focused = Arc::clone(&is_app_focused);
-            window.listen("app_focus", move |ev| {
+            window.listen("app_focused", move |ev| {
                 let is_focused = ev.payload().unwrap();
                 is_app_focused.store(
                     if is_focused == "true" { true } else { false },
@@ -346,15 +352,16 @@ fn main() {
                         if let MouseMove { x, y } = ev.event_type {
                             mouse_position = PhysicalPosition { x, y };
                         }
-                        if (!*listener_clone_translate_selected_text.lock().unwrap()
-                            && !*listener_clone_translate_clipboard.lock().unwrap())
-                            || clone_is_app_focused.load(std::sync::atomic::Ordering::Relaxed)
+                        if !*listener_clone_translate_selected_text.lock().unwrap()
+                            && !*listener_clone_translate_clipboard.lock().unwrap()
                         {
                             return;
                         }
                         match ev.event_type {
                             ButtonRelease(rdev::Button::Left) => {
-                                if !*listener_clone_translate_selected_text.lock().unwrap() {
+                                if !*listener_clone_translate_selected_text.lock().unwrap()
+                                    || clone_is_app_focused.load(Ordering::Relaxed)
+                                {
                                     return;
                                 }
                                 let xsel = consume_selected_text();

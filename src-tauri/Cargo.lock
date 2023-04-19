@@ -4201,7 +4201,7 @@ dependencies = [
 
 [[package]]
 name = "tiny-beast-dictionary"
-version = "1.10.52"
+version = "1.12.54"
 dependencies = [
  "fast_image_resize",
  "futures-util",
