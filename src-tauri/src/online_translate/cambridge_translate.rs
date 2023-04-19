@@ -93,26 +93,24 @@ async fn fetch_page(text: &str, from: &str, to: &str) -> Result<String, reqwest:
         *fr.unwrap()
     };
 
-    let to_eq = CAMBRIDGE_DICTS.get(to);
-    if to_eq.is_none() {
-        return Ok("".to_string());
-    }
+    let to_eq = CAMBRIDGE_DICTS
+        .get(to)
+        .unwrap_or(CAMBRIDGE_DICTS.get("en").unwrap());
 
-    if from == "en" && from_eq == *to_eq.unwrap() {
+    if from == "en" && from_eq == *to_eq {
         formatted_url = format!(
             "https://dictionary.cambridge.org/dictionary/english/{}",
             text
         );
     } else {
-        if from_eq == *to_eq.unwrap() {
+        if from_eq == *to_eq {
             return Ok("".to_string());
         }
 
         if from == "en" {
             formatted_url = format!(
                 "https://dictionary.cambridge.org/dictionary/english-{}/{}",
-                to_eq.unwrap(),
-                text
+                to_eq, text
             );
         } else {
             if SEMI_BIL_CAMBRIDGE_DICTS.get(from).is_some() {
@@ -224,7 +222,10 @@ fn parse_entry_body_html(html: &Html) -> String {
     nodes_str = nodes_str.replace("<div class=\"dimg\"", "<div style='display: none'");
     nodes_str = nodes_str.replace("<b", "<div style='display: block'");
     nodes_str = nodes_str.replace("</b>", "</div>");
-    nodes_str = nodes_str.replace("<div class=\"definition-src", "<div style='display: none' class=\"");
+    nodes_str = nodes_str.replace(
+        "<div class=\"definition-src",
+        "<div style='display: none' class=\"",
+    );
 
     nodes_str
 }
