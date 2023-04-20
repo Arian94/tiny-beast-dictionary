@@ -281,12 +281,13 @@ export const Translation = React.forwardRef(({
         inputRef.current?.addEventListener('keypress', inputSpeakHandler);
         inputRef.current?.addEventListener('focusin', focusInHandler);
 
-        const trimTextbuffer = (clip: string | null) => {
-            const trimmed = clip?.trim();
+        const trimTextbuffer = (text: string | null) => {
+            let trimmed = text?.trim();
             if (!trimmed) return;
             if (trimmed === clipboardBuffer) return;
             if (trimmed.search(/[{}=<>]/) >= 0) return;
 
+            trimmed = trimmed.replaceAll('\n', ' ');
             return trimmed
         }
 
@@ -335,6 +336,7 @@ export const Translation = React.forwardRef(({
         const translateSelectedTextListener = listen<string>('text_selected', async ({ payload: text }) => {
             if (!_shouldTranslateSelectedTextRef.current) return;
             if (!text) return;
+            text = text.replaceAll('\n', ' ');
             if (inputRef.current) inputRef.current.value = text;
             consumeClipboard();
             setTransRefLoadingState();
