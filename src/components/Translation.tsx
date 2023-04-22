@@ -77,7 +77,9 @@ export const Translation = React.forwardRef(({
         if (!word?.trim()) return clearInput(translationTextareaRef.current === SEARCHING_TRANS);
         setTransRefLoadingState();
         await invokeBackend(word);
-        fieldsetRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+        setTimeout(() => {
+            fieldsetRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 100);
     };
 
     const clearInput = (clearTransText: boolean) => {
@@ -170,12 +172,11 @@ export const Translation = React.forwardRef(({
 
                 {!!cambridgeTrans && <><h3>Cambridge:</h3>
                     <div className={styles.definitions} dangerouslySetInnerHTML={{ __html: cambridgeTrans }}></div>
-                    <hr />
                 </>}
 
-                {!!mymemory.length && <>{mymemoryTrans}<hr /></>}
+                {!!mymemory.length && <>{mymemoryTrans}</>}
 
-                {!!sentencedictTrans && <><h4 style={{ color: "rgb(var(--warning), .8)", fontStyle: "italic", fontSize: ".9rem" }}>Gathered from Websites:</h4>
+                {!!sentencedictTrans && <><hr /><h4 style={{ color: "rgb(var(--warning), .8)", fontStyle: "italic", fontSize: ".9rem" }}>Gathered from Websites:</h4>
                     <div className={styles.definitions} dangerouslySetInnerHTML={{ __html: sentencedictTrans.defStr }}></div>
                     <h4>Examples:</h4>
                     <div className={styles.examples} dangerouslySetInnerHTML={{ __html: sentencedictTrans.examples }}></div>

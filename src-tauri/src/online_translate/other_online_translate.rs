@@ -20,7 +20,7 @@ impl OtherTranslator {
     pub async fn sentencedict_translate(text: &str) -> Result<String, String> {
         if text.contains(" ") {
             return Ok("".to_string());
-        }    
+        }
         parse_sentencedict_resp(fetch_sentencedict_page(text).await)
     }
 
@@ -84,11 +84,7 @@ fn parse_sentencedict_resp(result: Result<String, reqwest::Error>) -> Result<Str
                 return Ok("".to_string());
             }
 
-            let res = all
-                .unwrap()
-                .split("<!--all结束-->")
-                .nth(0)
-                .unwrap_or("");
+            let res = all.unwrap().split("<!--all结束-->").nth(0).unwrap_or("");
             Ok(res.trim().to_string())
         }
         Err(err) => return Err(err.to_string()),

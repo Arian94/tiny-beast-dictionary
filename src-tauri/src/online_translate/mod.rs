@@ -4,6 +4,8 @@ mod other_online_translate;
 
 use self::other_online_translate::{MyMemoryTranslation, OtherTranslator};
 use serde::Serialize;
+use std::thread;
+use tauri::async_runtime::block_on;
 
 lazy_static! {
     pub static ref CLIENT: reqwest::Client =
@@ -26,46 +28,69 @@ pub struct OnlineTranslation {
 impl OnlineTranslator<'_> {
     pub async fn translate(&self, text: &str) -> Result<OnlineTranslation, String> {
         let text = text.trim().to_lowercase();
+        thread::scope(|s| {
+            let google_s = s.spawn(|| {
+                block_on(async {
+                    google_translate::Translator {
+                        from: self.from,
+                        to: self.to,
+                    }
+                    .translate(&text)
+                    .await
+                })
+            });
 
-        let google = google_translate::Translator {
-            from: self.from,
-            to: self.to,
-        }
-        .translate(&text)
-        .await;
-        if let Err(ge) = google {
-            return Err(ge);
-        }
+            let sentencedict_s = s.spawn(|| {
+                block_on(async {
+                    if self.from == "auto" || self.from == "en" {
+                        OtherTranslator::sentencedict_translate(&text).await
+                    } else {
+                        Ok("".to_string())
+                    }
+                })
+            });
 
-        let sentencedict = if self.from == "auto" || self.from == "en" {
-            OtherTranslator::sentencedict_translate(&text).await
-        } else {
-            Ok("".to_string())
-        };
-        if let Err(se) = sentencedict {
-            return Err(se);
-        }
+            let cambridge_s = s.spawn(|| {
+                block_on(async {
+                    cambridge_translate::Translator {
+                        from: self.from,
+                        to: self.to,
+                    }
+                    .translate(&text)
+                    .await
+                })
+            });
 
-        let cambridge = cambridge_translate::Translator {
-            from: self.from,
-            to: self.to,
-        }
-        .translate(&text)
-        .await;
-        if let Err(ca) = cambridge {
-            return Err(ca);
-        }
+            let mymemory_s = s.spawn(|| {
+                block_on(async {
+                    OtherTranslator::mymemory_translate(&text, self.from, self.to).await
+                })
+            });
 
-        let mymemory = OtherTranslator::mymemory_translate(&text, self.from, self.to).await;
-        if let Err(me) = mymemory {
-            return Err(me);
-        }
+            let google = google_s.join().unwrap();
+            let cambridge = cambridge_s.join().unwrap();
+            let sentencedict = sentencedict_s.join().unwrap();
+            let mymemory = mymemory_s.join().unwrap();
 
-        Ok(OnlineTranslation {
-            google: google.unwrap(),
-            cambridge: cambridge.unwrap(),
-            sentencedict: sentencedict.unwrap(),
-            mymemory: mymemory.unwrap(),
+            if let Err(e) = google {
+                return Err(e);
+            }
+            if let Err(e) = cambridge {
+                return Err(e);
+            }
+            if let Err(e) = mymemory {
+                return Err(e);
+            }
+            if let Err(e) = sentencedict {
+                return Err(e);
+            }
+
+            Ok(OnlineTranslation {
+                google: google.unwrap(),
+                cambridge: cambridge.unwrap(),
+                mymemory: mymemory.unwrap(),
+                sentencedict: sentencedict.unwrap(),
+            })
         })
     }
 }
