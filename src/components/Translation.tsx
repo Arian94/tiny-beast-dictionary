@@ -266,7 +266,7 @@ export const Translation = React.forwardRef(({
         }
 
         function inputSpeakHandler(this: HTMLInputElement, e: KeyboardEvent) {
-            if (e.code !== 'Enter') return;
+            if (e.key !== 'Enter') return;
             if (e.ctrlKey) return;
             if (activeTabRef.current === 'online' && fromRef.current === 'fa') return;
             if (activeTabRef.current === 'offline' && selectedOfflineDictRef.current === 'fa') return;
@@ -304,7 +304,7 @@ export const Translation = React.forwardRef(({
         function translationSpeakHandler(e: KeyboardEvent) {
             if (!translationTextareaRef.current) return;
             if (toRef.current === 'fa') return;
-            if (e.code !== 'Enter' || !e.ctrlKey) return;
+            if (e.key !== 'Enter' || !e.ctrlKey) return;
             if (activeTabRef.current === 'offline') return;
             speak((translationTextareaRef.current as OnlineTranslation).google, toRef.current);
         }

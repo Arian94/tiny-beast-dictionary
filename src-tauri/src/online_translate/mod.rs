@@ -4,12 +4,15 @@ mod other_online_translate;
 
 use self::other_online_translate::{MyMemoryTranslation, OtherTranslator};
 use serde::Serialize;
-use std::thread;
+use std::{thread, time::Duration};
 use tauri::async_runtime::block_on;
 
 lazy_static! {
-    pub static ref CLIENT: reqwest::Client =
-        reqwest::Client::builder().use_rustls_tls().build().unwrap();
+    pub static ref CLIENT: reqwest::Client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(10))
+        .use_rustls_tls()
+        .build()
+        .unwrap();
 }
 
 pub struct OnlineTranslator<'a> {

@@ -8,6 +8,7 @@ extern crate lazy_static;
 
 mod helper;
 mod online_translate;
+mod speaker;
 
 use helper::*;
 use ijson::IValue;
@@ -16,8 +17,10 @@ use rdev::{
     EventType::{ButtonRelease, KeyPress, KeyRelease, MouseMove, Wheel},
     Key::{Backspace, ControlLeft, ControlRight, Escape, KeyC, ShiftLeft, ShiftRight},
 };
+use speaker::{languages::Languages, GTTSClient};
 use std::{
     fs,
+    str::FromStr,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
@@ -28,8 +31,6 @@ use tauri::{
     CustomMenuItem, Manager, PhysicalPosition, PhysicalSize, SystemTray, SystemTrayEvent,
     SystemTrayMenu, SystemTrayMenuItem, SystemTraySubmenu, WindowEvent,
 };
-use tts_rust::languages::Languages::*;
-use tts_rust::tts::GTTSClient;
 
 const TRANSLATE_CLIPBOARD_TITLE: &'static str = "Clipboard";
 const TRANSLATE_SELECTED_TEXT_TITLE: &'static str = "Selected Text";
@@ -462,73 +463,13 @@ async fn speak<'a>(word: String, lang: String) {
     if word.is_empty() {
         return;
     }
+    let language = Languages::from_str(&lang).unwrap_or(Languages::English);
     let narrator = GTTSClient {
         tld: "com",
         volume: 1.0,
-        language: match lang.as_str() {
-            "en" => English,
-            "fr" => French,
-            "af" => Afrikaans,
-            "ar" => Arabic,
-            "bg" => Bulgarian,
-            "bn" => Bengali,
-            "bs" => Bosnian,
-            "ca" => Catalan,
-            "cs" => Czech,
-            "cy" => Welsh,
-            "da" => Danish,
-            "de" => German,
-            "el" => Greek,
-            "eo" => Esperanto,
-            "es" => Spanish,
-            "et" => Estonian,
-            "fi" => Finnish,
-            "gu" => Gujarati,
-            "hi" => Hindi,
-            "hr" => Croatian,
-            "hu" => Hungarian,
-            "hy" => Armenian,
-            "id" => Indonesian,
-            "is" => Icelandic,
-            "it" => Italian,
-            "ja" => Japanese,
-            "jw" => Javanese,
-            "km" => Khmer,
-            "kn" => Kannada,
-            "ko" => Korean,
-            "la" => Latin,
-            "lv" => Latvian,
-            "mk" => Macedonian,
-            "ml" => Malayalam,
-            "mr" => Marathi,
-            "my" => MyanmarAKABurmese,
-            "ne" => Nepali,
-            "nl" => Dutch,
-            "no" => Norwegian,
-            "pl" => Polish,
-            "pt" => Portuguese,
-            "ro" => Romanian,
-            "ru" => Russian,
-            "si" => Sinhala,
-            "sk" => Slovak,
-            "sq" => Albanian,
-            "sr" => Serbian,
-            "su" => Sundanese,
-            "sv" => Swedish,
-            "sw" => Swahili,
-            "ta" => Tamil,
-            "te" => Telugu,
-            "th" => Thai,
-            "tl" => Filipino,
-            "tr" => Turkish,
-            "uk" => Ukrainian,
-            "ur" => Urdu,
-            "vi" => Vietnamese,
-            "zh-CN" => Chinese,
-            _ => English,
-        },
+        language,
     };
-    if let Err(e) = narrator.speak(&word) {
+    if let Err(e) = narrator.speak(&word).await {
         eprintln!("{}", e)
     }
 }
