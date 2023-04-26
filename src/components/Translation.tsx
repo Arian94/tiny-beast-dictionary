@@ -238,6 +238,7 @@ export const Translation = React.forwardRef(({
             const tr = (translationTextareaRef.current as OnlineTranslation).google ?? inputRef.current?.value;
             if (!inputRef.current) return;
             if (!loading) inputRef.current.value = tr;
+            inputRef.current.focus();
             search(inputRef.current.value);
         },
         translationTextareaRef,
