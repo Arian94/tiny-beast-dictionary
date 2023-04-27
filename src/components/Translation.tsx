@@ -276,8 +276,10 @@ export const Translation = React.forwardRef(({
             speak(value, activeTabRef.current === 'online' ? fromRef.current : selectedOfflineDictRef.current || 'auto');
         }
 
-        function focusInHandler(this: HTMLInputElement) {
-            setTimeout(() => this.select())
+        const focusInHandler = () => {
+            setTimeout(() => {
+                inputRef.current?.select();
+            }, 50)
         }
 
         inputRef.current?.addEventListener('keypress', inputSpeakHandler);
@@ -325,7 +327,8 @@ export const Translation = React.forwardRef(({
         const appFocus = appWindow.onFocusChanged(async ({ payload: isFocused }) => {
             appWindow.emit('app_focused', isFocused);
             if (!isFocused) return;
-            inputRef.current?.select();
+            inputRef.current?.blur();
+            inputRef.current?.focus();
             translateClip();
         });
 
