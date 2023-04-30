@@ -37,7 +37,7 @@ impl GTTSClient {
             .send()
             .await
             .map_err(|e| format!("{}", e))?;
-        let bytes = rep.bytes().await.unwrap();
+        let bytes = rep.bytes().await.unwrap_or("".as_bytes().into());
 
         if bytes.is_empty() || bytes.starts_with("<html".as_bytes()) {
             return Err("something went wrong".to_string());
@@ -45,19 +45,27 @@ impl GTTSClient {
 
         Ok(bytes.to_vec())
     }
-    fn play_mp3(&self, vec: Vec<u8>) {
-        let (_s, handle) = rodio::OutputStream::try_default().unwrap();
+
+    fn play(&self, vec: Vec<u8>) -> Result<(), String> {
+        let stream = rodio::OutputStream::try_default();
+        if let Err(e) = stream {
+            return Err(e.to_string());
+        }
+        let (_s, handle) = stream.unwrap();
         let file = Cursor::new(vec);
-        let s = handle.play_once(file).unwrap();
+        let s = handle.play_once(file);
+        if let Err(e) = s {
+            return Err(e.to_string());
+        }
+        let s = s.unwrap();
         s.set_volume(self.volume);
-        s.sleep_until_end();
+        Ok(s.sleep_until_end())
     }
 
     /// Speak the input according to the volume and language
     pub async fn speak(&self, input: &str) -> Result<(), String> {
         let sound = self.get_sound(input).await?;
-        self.play_mp3(sound);
-        Ok(())
+        self.play(sound)
     }
 }
 
