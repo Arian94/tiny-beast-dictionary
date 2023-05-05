@@ -138,10 +138,13 @@ fn main() {
         .add_submenu(setting_menu)
         .add_submenu(theme_menu);
     let tray = SystemTray::new().with_menu(tray_menu);
-    fn consume_selected_text() -> std::process::Output {
-        std::process::Command::new("xsel")
-            .output()
-            .expect("failed to get shell output")
+    fn consume_selected_text() -> Vec<u8> {
+        let output = std::process::Command::new("xsel").output();
+        if let Err(e) = output {
+            eprintln!("{}", e.to_string());
+            return vec![];
+        }
+        output.unwrap().stdout
     }
     let is_app_focused = Arc::new(AtomicBool::new(true)); // to ignore translation when appWindow is focused.
     let tray_is_app_focused = Arc::clone(&is_app_focused);
@@ -365,9 +368,8 @@ fn main() {
                                 {
                                     return;
                                 }
-                                let xsel = consume_selected_text();
-                                let xsel = String::from_utf8(xsel.stdout)
-                                    .or(Err("something went wrong in xsel"));
+                                let xsel = String::from_utf8(consume_selected_text())
+                                    .or(Err("something went wrong in converting xsel"));
                                 if let Ok(output) = xsel {
                                     let clip = tauri::ClipboardManager::read_text(
                                         &app_handle.clipboard_manager(),
