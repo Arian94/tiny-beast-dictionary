@@ -50,15 +50,15 @@ lazy_static! {
         (
             "en",
             OfflineDict {
-                url: "https://drive.google.com/uc?export=download&id=1ZxMDBL-cAxIGVQ4KJR9iEVm_bXOJWnog",
-                length_mb: 94,
+                url: "https://p-def5.pcloud.com/cfZoNWC9dZTUcfOcZoAzj7ZZKXXTo7Z2ZZeY5ZZs9J65ZILZ6pZ6ZS4ZEFZAJZvpZrpZfXZNzZcLZ4RZjJZpzZzRUC2q03VQJbWeLh9szGl0wLyCzX/incorrect_en.tar.xz",
+                length_mb: 90,
                 name: "English"
             }
         ),
         (
             "fr",
             OfflineDict {
-                url: "https://drive.google.com/uc?export=download&id=11lUFTvd7fCKlHhxU3buxgAXslab-fiDC",
+                url: "https://p-def1.pcloud.com/cfZyKPx9dZXvOWOcZoAzj7ZZFkVTo7Z2ZZeY5ZZMbo67ZKHZD7ZW4Z3pZ5Z8kZOJZfXZOHZvZBLZyVZ1pZcFZQNVaARg5uI8XTgUw538tMVX8qYY7/incorrect_fr.tar.xz",
                 length_mb: 25,
                 name: "French"
             }
@@ -66,7 +66,7 @@ lazy_static! {
         (
             "de",
             OfflineDict {
-                url: "https://drive.google.com/uc?export=download&id=1bf6JlXWCBkq1ieTAivPmtj2aicyCrxHc",
+                url: "https://p-def2.pcloud.com/cfZNRSw9dZDpWDOcZoAzj7ZZOyVTo7Z2ZZeY5ZZcXFokZ1pZh4Z2FZyLZOzZHFZGLZs4ZbXZbRZNRZIFZ9FZWLZ9gTk9gA0F9uirQJatlxCfVxRUB2k/incorrect_de.tar.xz",
                 length_mb: 41,
                 name: "German"
             }
@@ -74,7 +74,7 @@ lazy_static! {
         (
             "es",
             OfflineDict {
-                url: "https://drive.google.com/uc?export=download&id=1wHNS7BmbygZfitql5cYmBffweB9X0Iz9",
+                url: "https://p-def6.pcloud.com/cfZNKiC9dZF3R2OcZoAzj7ZZy7VTo7Z2ZZeY5ZZAktOkZbXZTHZ2FZz4Z4zZdZozZeFZpZh0ZuHZJzZUkZ8LZCxuzhN4YvxVDUkQhJbJtTbTj3Oe7/incorrect_es.tar.xz",
                 length_mb: 39,
                 name: "Spanish"
             }
@@ -82,7 +82,7 @@ lazy_static! {
         (
             "it",
             OfflineDict {
-                url: "https://drive.google.com/uc?export=download&id=14urD7NVf-3CjKUsjwoaBFoRHOheohC4A",
+                url: "https://p-def6.pcloud.com/cfZVWYx9dZqsJWOcZoAzj7ZZP7VTo7Z2ZZeY5ZZ256QkZgRZhRZ0LZt5ZmRZSpZ77ZQFZUpZKzZL4ZrkZb0ZM4Zj7uYhoIwSNBKjenIICSSDh2p0ryk/incorrect_it.tar.xz",
                 length_mb: 32,
                 name: "Italian"
             }
@@ -90,7 +90,7 @@ lazy_static! {
         (
             "fa",
             OfflineDict {
-                url: "https://drive.google.com/uc?export=download&id=1YWVECa-0YyMkk8LwlLuBr5aoQu_WzqnX",
+                url: "https://p-def7.pcloud.com/cfZ3siT9dZhCWbOcZoAzj7ZZHo7To7Z2ZZeY5ZZInQ4ZV7ZzXZkVZtzZf4ZYLZcHZUkZRRZCpZozZ6pZ24ZG7ZWuTlyiw51LQqJJJHmKEiyBwin63y/incorrect_fa.tar.xz",
                 length_mb: 3,
                 name: "Persian"
             }
@@ -98,7 +98,7 @@ lazy_static! {
         (
             "pt",
             OfflineDict {
-                url: "https://drive.google.com/uc?export=download&id=1I9eKFLCKupfjioTkbL83yKyyNNttazLS",
+                url: "https://p-def7.pcloud.com/cfZTeUP9dZqwSuOcZoAzj7ZZp0XTo7Z2ZZeY5ZZnMQB7ZGZyVZj5ZSVZWzZzFZIzZYpZe7ZJzZN0ZDRZ47ZmLZs8wi6HLOK2VkXvv0doGDnHtpuLRk/incorrect_pt.tar.xz",
                 length_mb: 20,
                 name: "Portuguese"
             }
@@ -106,7 +106,7 @@ lazy_static! {
         (
             "zh-CN",
             OfflineDict {
-                url: "https://drive.google.com/uc?export=download&id=174MR_R1Kfcm-F9KoO5xmUBpHwZ2fmE4O",
+                url: "https://p-def7.pcloud.com/cfZbyQP9dZ4LJjOcZoAzj7ZZQVXTo7Z2ZZeY5ZZeSYfXZsRZIpZ1HZsLZfXZAzZzXZ1kZbzZrHZqRZ5zZiXZGZTLf3mJMWEgk0NtR52Ae2YhqKSvdk/incorrect-zh-CN.tar.xz",
                 length_mb: 47,
                 name: "Chinese"
             }
@@ -114,7 +114,7 @@ lazy_static! {
         (
             "ar",
             OfflineDict {
-                url: "https://drive.google.com/uc?export=download&id=1H6cGUgs2mOLIcO1RSowVDDeFAju1KuFn",
+                url: "https://p-def8.pcloud.com/cfZyLLw9dZcxHDOcZoAzj7ZZuyVTo7Z2ZZeY5ZZq9BB7ZpLZYkZdHZHFZOJZoLZmJZuFZeFZi7ZaRZX7ZDRZoXZxDcPzo4kX2jIgGW4sPT9qFiJBVxX/incorrect_ar.tar.xz",
                 length_mb: 20,
                 name: "Arabic"
             }
@@ -344,7 +344,6 @@ pub async fn download_dict(abbr: &str, window: tauri::Window) -> Result<(), Stri
     fs::remove_file(tarxz_path).or(Err("error in deleting zip file"))?;
     fs::remove_file(incorrect_file_path).or(Err("error in deleting incorrect file"))?;
     window.unlisten(ev_han);
-    println!("downloaded: {abbr}");
     Ok(())
 }
 

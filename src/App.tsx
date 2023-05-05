@@ -29,7 +29,7 @@ function App() {
   const isLangSwapped = useRef(false);
   const [offlineDictsList, setOfflineDictsList] = useState<OfflineDictsList>(
     {
-      en: { percentage: NOT_DOWNLOADED, zipped: '94 MB', extracted: '621 MB', name: "English", isBootUp: false },
+      en: { percentage: NOT_DOWNLOADED, zipped: '90 MB', extracted: '621 MB', name: "English", isBootUp: false },
       fr: { percentage: NOT_DOWNLOADED, zipped: '25 MB', extracted: '324 MB', name: "French", isBootUp: false },
       de: { percentage: NOT_DOWNLOADED, zipped: '41 MB', extracted: '686 MB', name: "German", isBootUp: false },
       es: { percentage: NOT_DOWNLOADED, zipped: '39 MB', extracted: '617 MB', name: "Spanish", isBootUp: false },
@@ -81,7 +81,7 @@ function App() {
 
     once<SavedConfig>('get_saved_config',
       ({ payload: { theme, activeTab, from, to, selectedOfflineDict, downloadedDicts, shouldTranslateClipboard: tc, shouldTranslateSelectedText: ts } }) => {
-        activeTab && setActiveTab(activeTab as 'online' | 'offline');
+        activeTab && setActiveTab(activeTab);
         from && setFrom(from);
         to && setTo(to);
         setSelectedOfflineDict(selectedOfflineDict);

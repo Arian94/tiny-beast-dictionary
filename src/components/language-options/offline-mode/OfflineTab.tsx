@@ -1,5 +1,5 @@
-import { MutableRefObject, useMemo } from 'react';
-import { OfflineDictAbbrs, OfflineDictsList, OfflineTranslation } from '../../../models/offline-mode';
+import { useMemo } from 'react';
+import { OfflineDictAbbrs, OfflineDictsList } from '../../../models/offline-mode';
 import styles from './OfflineTab.module.scss';
 
 export function OfflineTab({
@@ -15,13 +15,8 @@ export function OfflineTab({
     setSelectedOfflineDict: React.Dispatch<React.SetStateAction<OfflineDictAbbrs | undefined>>,
     setIsOpen: React.Dispatch<React.SetStateAction<boolean>>
 }) {
-    const renderOfflineLangOptions = () => {
-        return downloadedDicts.map(d => {
-            return <option key={d} value={d}>{offlineDictsList[d].name}</option>
-        })
-    }
-
-    const offlineLangOptions = useMemo(() => renderOfflineLangOptions(), [downloadedDicts]);
+    const renderOfflineLangOptions = () => downloadedDicts.map(d => <option key={d} value={d}>{offlineDictsList[d].name}</option>);
+    const offlineLangOptions = useMemo(renderOfflineLangOptions, [downloadedDicts]);
 
     return (
         <div className={styles.addOrRemoveLangs}>

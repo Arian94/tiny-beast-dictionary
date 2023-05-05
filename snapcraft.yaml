@@ -29,7 +29,6 @@ apps:
       - home
       - alsa
       - audio-playback
-      - network-status
       - network
 
 layout:

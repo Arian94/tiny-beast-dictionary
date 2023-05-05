@@ -238,6 +238,7 @@ export const Translation = React.forwardRef(({
             const tr = (translationTextareaRef.current as OnlineTranslation).google ?? inputRef.current?.value;
             if (!inputRef.current) return;
             if (!loading) inputRef.current.value = tr;
+            inputRef.current.blur();
             inputRef.current.focus();
             search(inputRef.current.value);
         },
@@ -370,14 +371,13 @@ export const Translation = React.forwardRef(({
     const offlineTranslations = useMemo(() => renderOfflineTranslations(), [translationTextareaRef.current]);
     const onlineTranslations = useMemo(() => renderOnlineTranslations(), [translationTextareaRef.current]);
 
-    const isLatin = useMemo(() => (function () {
-        return (activeTabRef.current === 'online' && fromRef.current !== 'fa' && fromRef.current !== 'ar') ||
-            (activeTabRef.current === 'offline' && selectedOfflineDictRef.current !== 'fa' && selectedOfflineDictRef.current !== 'ar');
-    })(), [activeTabRef.current, fromRef.current, selectedOfflineDictRef.current]);
+    const isLatin = useMemo(() => (activeTabRef.current === 'online' && fromRef.current !== 'fa' && fromRef.current !== 'ar') ||
+        (activeTabRef.current === 'offline' && selectedOfflineDictRef.current !== 'fa' && selectedOfflineDictRef.current !== 'ar'),
+        [activeTabRef.current, fromRef.current, selectedOfflineDictRef.current]);
 
-    const isFa = useMemo(() => (function () {
-        return (activeTabRef.current === 'online' && fromRef.current === 'fa') || (activeTabRef.current === 'offline' && selectedOfflineDictRef.current === 'fa');
-    })(), [activeTabRef.current, fromRef.current, selectedOfflineDictRef.current]);
+    const isFa = useMemo(() => (activeTabRef.current === 'online' && fromRef.current === 'fa') ||
+        (activeTabRef.current === 'offline' && selectedOfflineDictRef.current === 'fa'),
+        [activeTabRef.current, fromRef.current, selectedOfflineDictRef.current]);
 
     return (
         <>

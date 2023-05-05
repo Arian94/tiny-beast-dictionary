@@ -133,6 +133,7 @@ fn parse_kdic_html(html: &Html) -> String {
     let mut nodes_str = nodes.into_iter().map(|n| n.html()).collect::<String>();
     nodes_str = nodes_str.replace("href=", "");
     nodes_str = nodes_str.replace("<h2 ", "<h2 style='display:none'");
+    nodes_str = nodes_str.replace("<div class=\"dwl hax\"", "<div style='display:none'");
     nodes_str = nodes_str.replace(
         "<div class=\"def-body ddef_b ddef_b-t\">",
         "<div><strong style='display: block; margin-top: .5rem;'>Translation:</strong>",
@@ -179,6 +180,7 @@ fn parse_entry_body_html(html: &Html) -> String {
         "<span class=\"pron-info dpron-info\">",
         "<span style='display: flex; gap: 1rem;'>",
     );
+    nodes_str = nodes_str.replace("<div class=\"dwl hax\"", "<div style='display:none'");
     nodes_str = nodes_str.replace(
         "<div class=\"def ddef_d db\"",
         "<strong style='display: block; margin-top: .5rem;'>Translation:</strong><div style='margin-top: .5rem;'",

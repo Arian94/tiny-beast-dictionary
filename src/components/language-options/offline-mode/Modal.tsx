@@ -69,37 +69,35 @@ export const Modal: React.FC<{
       }
     }
 
-    const langOptions = () => {
-      return (Object.keys(offlineDictsList) as OfflineDictAbbrs[])
-        .map(abbr => {
-          const dict = offlineDictsList[abbr];
-          const dlStatusIcon = dict.percentage === NOT_DOWNLOADED ? downloadIcon : dict.percentage === DOWNLOADED ? deleteIcon : cancelIcon;
-          return (
-            <div key={abbr} className={styles.item}>
-              <span>{dict.name} <small>(D: {dict.zipped}, I: {dict.extracted})</small></span>
-              <div className={styles.download}>
-                {dict.percentage !== NOT_DOWNLOADED && dict.percentage !== DOWNLOADED &&
-                  <span>
-                    {dict.percentage === WAIT_FOR_PROCESSING ? <h6>processing</h6> : dict.percentage === DOWNLOAD_STARTED ? <h6>initializing</h6> : `${dict.percentage}%`}
-                  </span>
-                }
-                <button
-                  disabled={dict.percentage === WAIT_FOR_PROCESSING}
-                  style={{
-                    backgroundImage: `url(${dlStatusIcon})`,
-                    backgroundSize: '20px',
-                    opacity: dict.percentage === WAIT_FOR_PROCESSING ? '0.5' : '',
-                    cursor: dict.percentage === WAIT_FOR_PROCESSING ? 'default' : '',
-                  }}
-                  onClick={() => downloadCancelDelete(abbr)}>
-                </button>
-              </div>
+    const langOptions = () => (Object.keys(offlineDictsList) as OfflineDictAbbrs[])
+      .map(abbr => {
+        const dict = offlineDictsList[abbr];
+        const dlStatusIcon = dict.percentage === NOT_DOWNLOADED ? downloadIcon : dict.percentage === DOWNLOADED ? deleteIcon : cancelIcon;
+        return (
+          <div key={abbr} className={styles.item}>
+            <span>{dict.name} <small>(D: {dict.zipped}, I: {dict.extracted})</small></span>
+            <div className={styles.download}>
+              {dict.percentage !== NOT_DOWNLOADED && dict.percentage !== DOWNLOADED &&
+                <span>
+                  {dict.percentage === WAIT_FOR_PROCESSING ? <h6>processing</h6> : dict.percentage === DOWNLOAD_STARTED ? <h6>initializing</h6> : `${dict.percentage}%`}
+                </span>
+              }
+              <button
+                disabled={dict.percentage === WAIT_FOR_PROCESSING}
+                style={{
+                  backgroundImage: `url(${dlStatusIcon})`,
+                  backgroundSize: '20px',
+                  opacity: dict.percentage === WAIT_FOR_PROCESSING ? '0.5' : '',
+                  cursor: dict.percentage === WAIT_FOR_PROCESSING ? 'default' : '',
+                }}
+                onClick={() => downloadCancelDelete(abbr)}>
+              </button>
             </div>
-          )
-        })
-    }
+          </div>
+        )
+      });
 
-    const langs = useMemo(() => langOptions(), [offlineDictsList]);
+    const langs = useMemo(langOptions, [offlineDictsList]);
 
     return (
       <>
@@ -113,14 +111,14 @@ export const Modal: React.FC<{
           <div className={`modal-content ${styles.modalContent}`}>
             <div className={styles.title}>
               List of available dictionaries:
-              <small>File Sizes: Download: D - Installed: I</small>
+              <small>File Sizes: Download: D - Install: I</small>
             </div>
             <div className={styles.dictItems}>
               {langs}
             </div>
 
             <span style={{ display: 'block', fontSize: '.8rem', marginTop: '.4rem', color: 'rgb(var(--warning))' }}>
-              Installation takes intensive CPU usage.
+              Not recommended for old PCs.
             </span>
           </div>
 
